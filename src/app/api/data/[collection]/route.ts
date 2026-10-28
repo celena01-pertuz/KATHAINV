@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { count, create, getAll, getById, remove, update } from '@/lib/json-db';
 import { now } from '@/lib/utils';
 import { getSchema } from '@data/_schema/registry';
+import { z } from 'zod';
 
 function apiError(error: string, code: string, status: number) {
   return NextResponse.json(
@@ -70,7 +71,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ co
 
   try {
     const body = await request.json();
-    const parsed = schema.safeParse(body);
+    const createSchema =
+      schema instanceof z.ZodObject ? schema.omit({ id: true, createdAt: true, updatedAt: true }) : schema;
+    const parsed = createSchema.safeParse(body);
     if (!parsed.success) {
       return apiError(parsed.error.issues.map((issue) => issue.message).join(', '), 'VALIDATION_ERROR', 400);
     }
@@ -117,6 +120,10 @@ export async function DELETE(
   const { collection } = await context.params;
   const id = new URL(request.url).searchParams.get('id');
 
+  if (!getSchema(collection)) {
+    return apiError(`La colección ${collection} no existe.`, 'NOT_FOUND', 404);
+  }
+
   if (!id) {
     return apiError('Se requiere un parámetro id.', 'VALIDATION_ERROR', 400);
   }
@@ -140,14 +147,16 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ c
 
 export async function HEAD(_request: NextRequest, context: { params: Promise<{ collection: string }> }) {
   const { collection } = await context.params;
-  const total = await count(collection).catch(() => 0);
 
-  return NextResponse.json(
-    {
-      collection,
-      total,
-      timestamp: now(),
-    },
-    { status: 200, headers: { 'X-Collection-Name': collection } },
-  );
+  if (!getSchema(collection)) {
+    return apiError(`La colección ${collection} no existe.`, 'NOT_FOUND', 404);
+  }
+
+  try {
+    const total = await count(collection);
+    return apiSuccess({ collection, total }, 200);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Error inesperado';
+    return apiError(message, 'IO_ERROR', 500);
+  }
 }
