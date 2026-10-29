@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Button } from '@/components/ui';
 
 const highlights = [
   { label: 'Framework', value: 'Next.js 15' },
@@ -89,14 +90,16 @@ export function HolaMundo() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="md"
               onClick={toggleTheme}
               aria-label={`Cambiar a tema ${isDark ? 'claro' : 'oscuro'}`}
-              className="rounded-full border border-border bg-surface px-4 py-2 text-sm text-foreground transition hover:bg-background"
+              className="backdrop-blur-sm"
             >
               Tema {isDark ? 'oscuro' : 'claro'}
-            </button>
+            </Button>
             <button className="rounded-full border border-border bg-surface/70 px-4 py-2 text-sm text-foreground backdrop-blur-sm transition hover:bg-surface">
             Ver proyecto
             </button>
