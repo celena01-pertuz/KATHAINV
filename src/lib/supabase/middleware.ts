@@ -4,7 +4,13 @@ import { canAccessInventory } from '@/lib/auth/access-policy';
 import { isUnauthenticatedError } from '@/lib/auth/server-access';
 import { getSupabaseConfig } from './config';
 
-const publicPaths = new Set(['/login', '/register', '/auth/callback']);
+const publicPaths = new Set([
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/auth/callback',
+]);
 
 function redirectWithCookies(
   response: NextResponse,

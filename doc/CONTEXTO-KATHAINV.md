@@ -47,6 +47,19 @@ Los esquemas Zod van en `data/_schema/` y se registran en `data/_schema/registry
 - Una compra a proveedor **suma** al `stock`. Una venta **resta**.
 - Todo pago a proveedores es de contado, así que no se manejan deudas.
 
+## Fiados y abonos
+
+Requisitos para las tareas 3.3 y 3.4:
+
+- En cada venta se elige el tipo de pago: **contado**, **fiado** o **pago parcial**. El pago parcial registra el monto pagado. Para fiar o registrar un pago parcial, el cliente debe estar registrado.
+- Un **abono** es un pago que el cliente hace después para reducir su deuda. Cada abono guarda fecha, monto y una nota opcional. El monto no puede superar el saldo pendiente. Los abonos se pueden anular, pero no borrar.
+- El saldo del cliente se calcula a partir de las ventas fiadas menos los abonos; nunca se escribe ni se ajusta a mano.
+- La ficha del cliente muestra **“Al día”** o **“Debe $X”**, junto con el detalle de ventas fiadas, abonos y saldo.
+- Hay un listado de **“Quién me debe”**, ordenado de mayor a menor deuda.
+- El botón **“Recordar por WhatsApp”** abre un enlace `wa.me` con un mensaje amable que incluye el saldo. La persona envía el mensaje manualmente; no hay envío automático.
+- Los datos de clientes y deudas solo son visibles para los correos incluidos en `ALLOWED_EMAILS`.
+- Antes de usar el sistema con deudas reales, los datos deben guardarse en Supabase (Fase 4), porque Vercel no permite escribir en los archivos JSON.
+
 ## 6. Alcance
 
 **Sí incluye:**

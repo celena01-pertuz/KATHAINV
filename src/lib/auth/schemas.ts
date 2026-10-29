@@ -25,3 +25,5 @@ export const changePasswordSchema = z
     message: 'Las contraseñas no coinciden.',
     path: ['confirmPassword'],
   });
+
+export const resetPasswordSchema = changePasswordSchema;
