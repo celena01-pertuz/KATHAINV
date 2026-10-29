@@ -150,12 +150,17 @@ describe('json-db', () => {
     await expect(
       create<ProductRecord>('product', {
         code: 'KAT-001',
+        codeType: 'internal',
+        variantGroupId: 'variant_001',
         name: 'Blusa',
         category: 'ropa',
         size: 'M',
         color: 'Negro',
-        price: -1,
+        costPrice: 10000,
+        salePrice: -1,
         stock: 5,
+        minStock: 1,
+        active: true,
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });

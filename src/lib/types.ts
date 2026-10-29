@@ -2,6 +2,7 @@ export interface CollectionMeta {
   version: number;
   lastModified: string;
   description: string;
+  nextProductCodeSequence?: number;
 }
 
 export interface BaseRecord {

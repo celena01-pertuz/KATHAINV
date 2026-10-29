@@ -4,6 +4,7 @@ import { now } from '@/lib/utils';
 import { getSchema } from '@data/_schema/registry';
 import { z } from 'zod';
 import { getServerAccessStatus } from '@/lib/auth/server-access';
+import * as productsRoute from '../products/route';
 
 function apiError(error: string, code: string, status: number) {
   return NextResponse.json(
@@ -52,10 +53,12 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ collection: string }> },
 ) {
+  const { collection } = await context.params;
+  if (collection === 'product') return productsRoute.GET(request);
+
   const denied = await authorizationError();
   if (denied) return denied;
 
-  const { collection } = await context.params;
   const id = new URL(request.url).searchParams.get('id');
 
   try {
@@ -89,10 +92,12 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ collection: string }> },
 ) {
+  const { collection } = await context.params;
+  if (collection === 'product') return productsRoute.POST(request);
+
   const denied = await authorizationError();
   if (denied) return denied;
 
-  const { collection } = await context.params;
   const schema = getSchema(collection);
 
   if (!schema) {
@@ -132,10 +137,12 @@ export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ collection: string }> },
 ) {
+  const { collection } = await context.params;
+  if (collection === 'product') return productsRoute.PUT(request);
+
   const denied = await authorizationError();
   if (denied) return denied;
 
-  const { collection } = await context.params;
   const schema = getSchema(collection);
 
   if (!schema) {
@@ -173,10 +180,12 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ collection: string }> },
 ) {
+  const { collection } = await context.params;
+  if (collection === 'product') return productsRoute.DELETE(request);
+
   const denied = await authorizationError();
   if (denied) return denied;
 
-  const { collection } = await context.params;
   const id = new URL(request.url).searchParams.get('id');
 
   if (!getSchema(collection)) {
@@ -204,17 +213,20 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ collection: string }> },
 ) {
+  const { collection } = await context.params;
+  if (collection === 'product') return productsRoute.POST(request);
   return POST(request, context);
 }
 
 export async function HEAD(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ collection: string }> },
 ) {
+  const { collection } = await context.params;
+  if (collection === 'product') return productsRoute.HEAD(request);
+
   const denied = await authorizationError();
   if (denied) return denied;
-
-  const { collection } = await context.params;
 
   if (!getSchema(collection)) {
     return apiError(`La colección ${collection} no existe.`, 'NOT_FOUND', 404);

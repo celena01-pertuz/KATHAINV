@@ -7,6 +7,9 @@ const {
   getAllMock,
   getByIdMock,
   getServerAccessStatusMock,
+  createProductMock,
+  listProductsMock,
+  removeOrDeactivateProductMock,
   removeMock,
   updateMock,
 } = vi.hoisted(() => ({
@@ -15,6 +18,9 @@ const {
   getAllMock: vi.fn(),
   getByIdMock: vi.fn(),
   getServerAccessStatusMock: vi.fn(),
+  createProductMock: vi.fn(),
+  listProductsMock: vi.fn(),
+  removeOrDeactivateProductMock: vi.fn(),
   removeMock: vi.fn(),
   updateMock: vi.fn(),
 }));
@@ -24,6 +30,13 @@ vi.mock('@/lib/auth/server-access', () => ({
 }));
 
 vi.mock('@/lib/json-db', () => ({
+  JsonDBError: class JsonDBError extends Error {
+    code: string;
+    constructor(code: string, message: string) {
+      super(message);
+      this.code = code;
+    }
+  },
   count: countMock,
   create: createMock,
   getAll: getAllMock,
@@ -32,22 +45,37 @@ vi.mock('@/lib/json-db', () => ({
   update: updateMock,
 }));
 
+vi.mock('@/modules/products/service', () => ({
+  createProduct: createProductMock,
+  findProductByCode: vi.fn(),
+  getProduct: vi.fn(),
+  listProducts: listProductsMock,
+  normalizeProductCode: (code: string) => code.replace(/\s+/g, '').toUpperCase(),
+  removeOrDeactivateProduct: removeOrDeactivateProductMock,
+  updateProduct: vi.fn(),
+}));
+
 import { DELETE, GET, POST } from '../[collection]/route';
 
 const productInput = {
-  code: 'KAT-001',
+  code: 'KAT-000001',
   name: 'Blusa',
   category: 'ropa',
   size: 'M',
   color: 'Negro',
-  price: 25000,
+  costPrice: 15000,
+  salePrice: 25000,
   stock: 5,
+  minStock: 1,
+  active: true,
 };
 
 const productRecord = {
   id: 'product_001',
   createdAt: '2026-10-28T00:00:00.000Z',
   updatedAt: '2026-10-28T00:00:00.000Z',
+  codeType: 'factory',
+  variantGroupId: 'variant_001',
   ...productInput,
 };
 
@@ -69,13 +97,7 @@ describe('/api/data/[collection]', () => {
   });
 
   it('lista productos en una respuesta estándar', async () => {
-    getAllMock.mockResolvedValue({
-      data: [productRecord],
-      total: 1,
-      limit: 1,
-      offset: 0,
-      records: [productRecord],
-    });
+    listProductsMock.mockResolvedValue([productRecord]);
 
     const response = await GET(
       makeRequest('http://localhost/api/data/product'),
@@ -92,7 +114,7 @@ describe('/api/data/[collection]', () => {
   });
 
   it('crea un producto válido sin exigir campos generados por el motor', async () => {
-    createMock.mockResolvedValue(productRecord);
+    createProductMock.mockResolvedValue(productRecord);
 
     const response = await POST(
       makeRequest('http://localhost/api/data/product', 'POST', productInput),
@@ -103,12 +125,15 @@ describe('/api/data/[collection]', () => {
     expect(response.status).toBe(201);
     expect(body).toMatchObject({ success: true, data: productRecord });
     expect(body.timestamp).toBeDefined();
-    expect(createMock).toHaveBeenCalledWith('product', productInput);
+    expect(createProductMock).toHaveBeenCalledWith(productInput);
   });
 
   it('rechaza un producto inválido con 400', async () => {
     const response = await POST(
-      makeRequest('http://localhost/api/data/product', 'POST', { ...productInput, price: -1 }),
+      makeRequest('http://localhost/api/data/product', 'POST', {
+        ...productInput,
+        salePrice: -1,
+      }),
       makeContext('product'),
     );
     const body = await response.json();
@@ -117,7 +142,7 @@ describe('/api/data/[collection]', () => {
     expect(body).toMatchObject({ success: false, code: 'VALIDATION_ERROR' });
     expect(body.error).toBeDefined();
     expect(body.timestamp).toBeDefined();
-    expect(createMock).not.toHaveBeenCalled();
+    expect(createProductMock).not.toHaveBeenCalled();
   });
 
   it('responde 404 para una colección inexistente', async () => {
@@ -134,7 +159,7 @@ describe('/api/data/[collection]', () => {
   });
 
   it('responde 404 al eliminar un producto inexistente', async () => {
-    removeMock.mockResolvedValue(false);
+    removeOrDeactivateProductMock.mockResolvedValue(null);
 
     const response = await DELETE(
       makeRequest('http://localhost/api/data/product?id=missing', 'DELETE'),
@@ -160,7 +185,7 @@ describe('/api/data/[collection]', () => {
     expect(response.status).toBe(401);
     expect(body).toMatchObject({ success: false, code: 'UNAUTHORIZED' });
     expect(body.error).toBe('Inicia sesión para continuar.');
-    expect(getAllMock).not.toHaveBeenCalled();
+    expect(listProductsMock).not.toHaveBeenCalled();
   });
 
   it('responde 403 si la cuenta no está autorizada', async () => {
@@ -176,7 +201,7 @@ describe('/api/data/[collection]', () => {
     expect(body).toMatchObject({ success: false, code: 'FORBIDDEN' });
     expect(body.error).toBe('No tienes permiso para acceder a este recurso.');
     expect(body.error).not.toContain('duena@');
-    expect(getAllMock).not.toHaveBeenCalled();
+    expect(listProductsMock).not.toHaveBeenCalled();
   });
 
   it('no permite modificar datos sin una sesión autorizada', async () => {
@@ -188,6 +213,6 @@ describe('/api/data/[collection]', () => {
     );
 
     expect(response.status).toBe(401);
-    expect(createMock).not.toHaveBeenCalled();
+    expect(createProductMock).not.toHaveBeenCalled();
   });
 });

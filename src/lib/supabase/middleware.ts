@@ -49,8 +49,18 @@ export async function updateSupabaseSession(request: NextRequest): Promise<NextR
     } = await supabase.auth.getUser();
 
     if (error && !isUnauthenticatedError(error)) throw error;
-    if (!user) return redirectWithCookies(response, request, '/login');
-    if (!canAccessInventory(user)) return redirectWithCookies(response, request, '/login');
+    if (!user) {
+      if (request.nextUrl.pathname === '/products') {
+        return new NextResponse('Inicia sesión para consultar productos.', { status: 401 });
+      }
+      return redirectWithCookies(response, request, '/login');
+    }
+    if (!canAccessInventory(user)) {
+      if (request.nextUrl.pathname === '/products') {
+        return new NextResponse('No tienes permiso para consultar productos.', { status: 403 });
+      }
+      return redirectWithCookies(response, request, '/login');
+    }
 
     return response;
   } catch (error) {

@@ -31,7 +31,7 @@ Los datos viven en archivos JSON dentro de `data/`, uno por colección. Cada arc
 
 | Colección | Archivo | Campos propios |
 |---|---|---|
-| Producto | `data/product.json` | `code` (texto, único), `name`, `category` (`ropa`, `calzado`, `bolso` o `accesorio`), `size`, `color`, `price` (decimal), `stock` (entero, mínimo 0) |
+| Producto/variante | `data/product.json` | `code` (único, interno o de fábrica), `codeType`, `variantGroupId`, `name`, `category`, `size`, `color`, `costPrice` y `salePrice` (pesos colombianos enteros), `stock`, `minStock`, `active` |
 | Proveedor | `data/supplier.json` | `name` |
 | Compra | `data/purchase.json` | `productCode`, `supplierId`, `quantity` (entero), `total` (decimal), `date` |
 | Venta | `data/sale.json` | `productCode`, `quantity` (entero), `total` (decimal), `date` |
@@ -43,6 +43,10 @@ Los esquemas Zod van en `data/_schema/` y se registran en `data/_schema/registry
 - **No se puede vender más cantidad de la que hay disponible.** La venta se bloquea con un mensaje claro.
 - Cuando el `stock` de un producto llega a cero, el sistema **avisa que está agotado**.
 - **Cada combinación de producto, talla y color tiene su propio código y su propio stock.** El `code` es la llave única.
+- Las variantes de un modelo comparten `variantGroupId`; cada una conserva su código, precio y existencias.
+- Si no se entrega un código de fábrica, la aplicación genera un consecutivo interno `KAT-000001`, `KAT-000002`, etc. Los números generados no se reutilizan tras eliminar productos. Los códigos se comparan ignorando espacios y mayúsculas/minúsculas.
+- Los productos con movimientos se desactivan para conservar el historial; solo se permite el borrado definitivo si nunca tuvieron movimientos.
+- El costo de compra, el precio de venta y otros importes de producto se guardan como pesos colombianos enteros, sin centavos; la interfaz los presenta con formato `es-CO`.
 - Si se escanea un código que no existe, **primero se registra como producto nuevo**, con el código ya llenado en el formulario. No se puede vender ni consultar antes.
 - Una compra a proveedor **suma** al `stock`. Una venta **resta**.
 - Todo pago a proveedores es de contado, así que no se manejan deudas.
@@ -73,6 +77,8 @@ Requisitos para las tareas 3.3 y 3.4:
 
 **No incluye:** facturación electrónica, varias sucursales, ventas por internet, impuestos, deudas con proveedores, fotos de productos ni impresión de etiquetas.
 
+La implementación de productos de la Tarea 3.2A protege la página y la API con la validación del usuario confirmado y `ALLOWED_EMAILS`. La API responde 401 sin sesión y 403 para cuentas no autorizadas. El acceso a productos se concentra en `src/modules/products/repository.ts`, para facilitar el cambio de JSON a Supabase en la Fase 4.
+
 **Pendientes por confirmar (no los implementes todavía):** descuentos o rebajas, y una cantidad mínima que avise antes de llegar a cero.
 
 ## 7. Pantallas previstas
@@ -83,7 +89,7 @@ Requisitos para las tareas 3.3 y 3.4:
 | `/login` | Iniciar sesión |
 | `/register` | Registrarse |
 | `/account` | Cambiar la contraseña |
-| `/products` | Lista, búsqueda y edición de productos |
+| `/products` | Lista, búsqueda, creación, edición, desactivación y eliminación permitida de productos y variantes |
 | `/scan` | Escanear: consultar o registrar producto nuevo |
 | `/purchases` | Registrar compras a proveedor |
 | `/sales` | Registrar ventas escaneando |

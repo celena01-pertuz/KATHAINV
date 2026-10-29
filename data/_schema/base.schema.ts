@@ -10,6 +10,7 @@ export const collectionMetaSchema = z.object({
   version: z.number().int().positive(),
   lastModified: z.string().datetime(),
   description: z.string(),
+  nextProductCodeSequence: z.number().int().positive().optional(),
 });
 
 export const collectionFileSchema = z.object({

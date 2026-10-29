@@ -14,6 +14,7 @@ import { getSchema } from '../../data/_schema/registry';
 export type JsonDBErrorCode =
   | 'NOT_FOUND'
   | 'DUPLICATE_ID'
+  | 'DUPLICATE_CODE'
   | 'VALIDATION_ERROR'
   | 'IO_ERROR'
   | 'READ_ONLY';
@@ -146,14 +147,15 @@ async function withWriteLock<T>(name: string, operation: () => Promise<T>): Prom
     release = resolve;
   });
 
-  locks.set(normalized, previous.then(() => current));
+  const queued = previous.then(() => current);
+  locks.set(normalized, queued);
 
   try {
     await previous;
     return await operation();
   } finally {
     release();
-    if (locks.get(normalized) === current) {
+    if (locks.get(normalized) === queued) {
       locks.delete(normalized);
     }
   }
@@ -169,6 +171,24 @@ function validateRecord<T extends BaseRecord>(name: string, record: Partial<T>):
   if (!result.success) {
     throw new JsonDBError('VALIDATION_ERROR', result.error.issues.map((issue) => issue.message).join(', '));
   }
+}
+
+export async function transactCollection<T extends BaseRecord, R>(
+  name: string,
+  operation: (
+    collection: CollectionFile<T>,
+  ) => { result: R; changed: boolean } | Promise<{ result: R; changed: boolean }>,
+): Promise<R> {
+  return withWriteLock(name, async () => {
+    const collection = await readCollection<T>(name);
+    const outcome = await operation(collection);
+    if (!outcome.changed) return outcome.result;
+
+    collection.records.forEach((record) => validateRecord(name, record));
+    collection._meta.lastModified = now();
+    await writeCollection(name, collection);
+    return outcome.result;
+  });
 }
 
 export async function getAll<T extends BaseRecord>(
