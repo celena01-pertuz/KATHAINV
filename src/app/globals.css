@@ -97,3 +97,57 @@ a {
   background-color: hsl(var(--color-primary) / 0.25);
   color: hsl(var(--color-foreground));
 }
+
+@media print {
+  @page {
+    margin: 5mm;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .product-label-print-area,
+  .product-label-print-area * {
+    visibility: visible !important;
+  }
+
+  .product-label-print-area {
+    position: absolute !important;
+    inset: 0 auto auto 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    color: #000 !important;
+  }
+
+  .product-label-controls {
+    display: none !important;
+  }
+
+  .product-label-grid {
+    display: flex !important;
+    gap: 0 !important;
+    margin: 0 !important;
+  }
+
+  .product-label {
+    flex: none;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 0.2mm solid #000 !important;
+    background: #fff !important;
+    color: #000 !important;
+    padding: 2mm !important;
+  }
+
+  .product-label svg {
+    display: block;
+    width: 100%;
+    max-height: 14mm;
+    overflow: visible;
+  }
+}

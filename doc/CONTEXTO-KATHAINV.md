@@ -75,9 +75,9 @@ Requisitos para las tareas 3.3 y 3.4:
 5. Ver los productos más y menos vendidos en un rango de fechas.
 6. Iniciar sesión, registrarse y cambiar la contraseña con Supabase Auth. Esta es una desviación explícita de la Tarea 3.3 del plan, que propone JWT y `user.json`: Supabase ya está activo en Vercel y los archivos JSON son de solo lectura en producción (sección 9), por lo que guardar usuarios ahí impediría el registro en el despliegue. El acceso a páginas y API de datos se limita en el servidor a correos confirmados incluidos en `ALLOWED_EMAILS`; la lista se compara sin espacios y sin distinguir mayúsculas.
 
-**No incluye:** facturación electrónica, varias sucursales, ventas por internet, impuestos, deudas con proveedores, fotos de productos ni impresión de etiquetas.
+**No incluye:** facturación electrónica, varias sucursales, ventas por internet, impuestos, deudas con proveedores ni fotos de productos.
 
-La implementación de productos protege las páginas y API con la validación del usuario confirmado y `ALLOWED_EMAILS`. La API responde 401 sin sesión y 403 para cuentas no autorizadas. El acceso a datos se concentra en el módulo de productos para facilitar el cambio de JSON a Supabase en la Fase 4. En `/scan`, la pistola lectora, el ingreso manual y la cámara comparten la búsqueda por código; la cámara se apaga al salir y la búsqueda por nombre sirve como alternativa si la etiqueta está dañada.
+La implementación de productos protege las páginas y API con la validación del usuario confirmado y `ALLOWED_EMAILS`. La API responde 401 sin sesión y 403 para cuentas no autorizadas. El acceso a datos se concentra en el módulo de productos para facilitar el cambio de JSON a Supabase en la Fase 4. En `/scan`, la pistola lectora, el ingreso manual y la cámara comparten la búsqueda por código; la cámara se apaga al salir y la búsqueda por nombre sirve como alternativa si la etiqueta está dañada. Desde `/products` se pueden seleccionar productos y copias para imprimir etiquetas Code 128 en SVG; el tamaño inicial es 50 × 30 mm y se puede ajustar.
 
 **Pendientes por confirmar (no los implementes todavía):** descuentos o rebajas, y una cantidad mínima que avise antes de llegar a cero.
 
@@ -89,7 +89,7 @@ La implementación de productos protege las páginas y API con la validación de
 | `/login` | Iniciar sesión |
 | `/register` | Registrarse |
 | `/account` | Cambiar la contraseña |
-| `/products` | Lista, búsqueda, creación, edición, desactivación y eliminación permitida de productos y variantes |
+| `/products` | Lista, búsqueda, creación, edición, desactivación, eliminación permitida e impresión de etiquetas de productos y variantes |
 | `/scan` | Consultar un producto por código manual, pistola lectora o cámara; buscar por nombre y ofrecer registrar códigos desconocidos |
 | `/purchases` | Registrar compras a proveedor |
 | `/sales` | Registrar ventas escaneando |

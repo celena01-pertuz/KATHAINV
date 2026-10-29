@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
+import { ProductLabelPrint } from './ProductLabelPrint';
 import type { ProductRecord } from '../types';
 
 type ProductFormValues = Partial<ProductRecord> & { variantGroupId?: string };
@@ -27,6 +28,7 @@ export function ProductManager() {
   const [sizeFilter, setSizeFilter] = useState('');
   const [colorFilter, setColorFilter] = useState('');
   const [formProduct, setFormProduct] = useState<ProductFormValues | null>(null);
+  const [showLabelPrint, setShowLabelPrint] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -135,16 +137,25 @@ export function ProductManager() {
           <h1 className="text-2xl font-bold">Productos</h1>
           <p className="mt-1 text-sm text-muted">Administra productos y variantes de inventario.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setNotice('');
-            setFormProduct({});
-          }}
-          className="min-h-12 rounded-md bg-primary px-4 font-semibold text-primary-foreground"
-        >
-          Nuevo producto
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setNotice('');
+              setFormProduct({});
+            }}
+            className="min-h-12 rounded-md bg-primary px-4 font-semibold text-primary-foreground"
+          >
+            Nuevo producto
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowLabelPrint((shown) => !shown)}
+            className="min-h-12 rounded-md border border-primary px-4 font-semibold text-primary"
+          >
+            Imprimir etiquetas
+          </button>
+        </div>
       </header>
 
       {notice && <p className="mb-4 rounded-md bg-success/10 p-3 text-sm">{notice}</p>}
@@ -160,6 +171,9 @@ export function ProductManager() {
           onCancel={() => setFormProduct(null)}
           onSubmit={saveProduct}
         />
+      )}
+      {showLabelPrint && (
+        <ProductLabelPrint products={products} onClose={() => setShowLabelPrint(false)} />
       )}
 
       <label className="mb-4 block">
