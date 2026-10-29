@@ -1,15 +1,12 @@
 import type { BaseRecord, CollectionFile } from '@/lib/types';
 import { JsonDBError, getAll, getById, query, transactCollection } from '@/lib/json-db';
 import { generateId, now } from '@/lib/utils';
+import { normalizeProductCode } from './code-utils';
 import type { ProductCreateInput, ProductDeleteResult, ProductInput, ProductRecord } from './types';
 
 const COLLECTION = 'product';
 const INTERNAL_CODE_PREFIX = 'KAT';
 type MovementRecord = BaseRecord & { productCode: string };
-
-export function normalizeProductCode(code: string): string {
-  return code.replace(/\s+/g, '').toLocaleUpperCase('es-CO');
-}
 
 function duplicateCode(records: ProductRecord[], code: string, exceptId?: string): boolean {
   const normalized = normalizeProductCode(code);

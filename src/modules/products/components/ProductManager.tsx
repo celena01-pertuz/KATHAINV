@@ -50,6 +50,11 @@ export function ProductManager() {
     void loadProducts();
   }, []);
 
+  useEffect(() => {
+    const newCode = new URLSearchParams(window.location.search).get('newCode');
+    if (newCode) setFormProduct({ code: newCode });
+  }, []);
+
   async function saveProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);

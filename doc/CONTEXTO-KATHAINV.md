@@ -77,7 +77,7 @@ Requisitos para las tareas 3.3 y 3.4:
 
 **No incluye:** facturación electrónica, varias sucursales, ventas por internet, impuestos, deudas con proveedores, fotos de productos ni impresión de etiquetas.
 
-La implementación de productos de la Tarea 3.2A protege la página y la API con la validación del usuario confirmado y `ALLOWED_EMAILS`. La API responde 401 sin sesión y 403 para cuentas no autorizadas. El acceso a productos se concentra en `src/modules/products/repository.ts`, para facilitar el cambio de JSON a Supabase en la Fase 4.
+La implementación de productos protege las páginas y API con la validación del usuario confirmado y `ALLOWED_EMAILS`. La API responde 401 sin sesión y 403 para cuentas no autorizadas. El acceso a datos se concentra en el módulo de productos para facilitar el cambio de JSON a Supabase en la Fase 4. En `/scan`, la pistola lectora, el ingreso manual y la cámara comparten la búsqueda por código; la cámara se apaga al salir y la búsqueda por nombre sirve como alternativa si la etiqueta está dañada.
 
 **Pendientes por confirmar (no los implementes todavía):** descuentos o rebajas, y una cantidad mínima que avise antes de llegar a cero.
 
@@ -90,7 +90,7 @@ La implementación de productos de la Tarea 3.2A protege la página y la API con
 | `/register` | Registrarse |
 | `/account` | Cambiar la contraseña |
 | `/products` | Lista, búsqueda, creación, edición, desactivación y eliminación permitida de productos y variantes |
-| `/scan` | Escanear: consultar o registrar producto nuevo |
+| `/scan` | Consultar un producto por código manual, pistola lectora o cámara; buscar por nombre y ofrecer registrar códigos desconocidos |
 | `/purchases` | Registrar compras a proveedor |
 | `/sales` | Registrar ventas escaneando |
 | `/reports` | Más y menos vendidos por fechas |

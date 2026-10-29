@@ -3,10 +3,10 @@ export {
   findProductByCode,
   getProduct,
   listProducts,
-  normalizeProductCode,
   removeOrDeactivateProduct,
   updateProduct,
 } from './repository';
+export { normalizeProductCode } from './code-utils';
 export type {
   ProductCreateInput,
   ProductDeleteResult,
