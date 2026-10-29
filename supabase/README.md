@@ -10,7 +10,8 @@ permisos. Las consultas de la aplicación deberán pasar por el servidor con
 `SUPABASE_SECRET_KEY`, nunca con una variable `NEXT_PUBLIC_*`.
 
 Después de aplicar la migración, revisa las consultas de verificación al final
-del SQL y ejecuta `scripts/check-products-public-access.ps1` desde la raíz del
-repositorio. El script lee las variables públicas de `.env.local` y no imprime
-claves ni respuestas de Supabase. Se considera correcto que la petición falle
-con HTTP 401, 403 o 404.
+del SQL y ejecuta `node scripts/check-products-public-access.mjs` desde la raíz
+del repositorio. El script lee las variables públicas de `.env.local` y no
+imprime claves ni respuestas de Supabase. El resultado es `OK` para HTTP 401,
+403 o 404; HTTP 200 se informa como fallo de seguridad. Errores de red,
+variables faltantes y otros estados HTTP se informan como no concluyentes.
