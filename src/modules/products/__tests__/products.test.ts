@@ -38,6 +38,7 @@ async function writeCollection(name: string, records: unknown[] = []) {
 }
 
 beforeEach(async () => {
+  vi.stubEnv('PRODUCTS_REPOSITORY', 'json');
   tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kathainv-products-'));
   vi.spyOn(process, 'cwd').mockReturnValue(tempRoot);
   await fs.mkdir(path.resolve(tempRoot, 'data'), { recursive: true });
