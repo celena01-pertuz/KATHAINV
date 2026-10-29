@@ -1,13 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { countMock, createMock, getAllMock, getByIdMock, removeMock, updateMock } = vi.hoisted(() => ({
+const {
+  countMock,
+  createMock,
+  getAllMock,
+  getByIdMock,
+  getServerAccessStatusMock,
+  removeMock,
+  updateMock,
+} = vi.hoisted(() => ({
   countMock: vi.fn(),
   createMock: vi.fn(),
   getAllMock: vi.fn(),
   getByIdMock: vi.fn(),
+  getServerAccessStatusMock: vi.fn(),
   removeMock: vi.fn(),
   updateMock: vi.fn(),
+}));
+
+vi.mock('@/lib/auth/server-access', () => ({
+  getServerAccessStatus: getServerAccessStatusMock,
 }));
 
 vi.mock('@/lib/json-db', () => ({
@@ -52,6 +65,7 @@ function makeContext(collection: string) {
 describe('/api/data/[collection]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getServerAccessStatusMock.mockResolvedValue('authorized');
   });
 
   it('lista productos en una respuesta estándar', async () => {
@@ -132,5 +146,48 @@ describe('/api/data/[collection]', () => {
     expect(body).toMatchObject({ success: false, code: 'NOT_FOUND' });
     expect(body.error).toBeDefined();
     expect(body.timestamp).toBeDefined();
+  });
+
+  it('responde 401 si no hay una sesión válida', async () => {
+    getServerAccessStatusMock.mockResolvedValue('unauthenticated');
+
+    const response = await GET(
+      makeRequest('http://localhost/api/data/product'),
+      makeContext('product'),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toMatchObject({ success: false, code: 'UNAUTHORIZED' });
+    expect(body.error).toBe('Inicia sesión para continuar.');
+    expect(getAllMock).not.toHaveBeenCalled();
+  });
+
+  it('responde 403 si la cuenta no está autorizada', async () => {
+    getServerAccessStatusMock.mockResolvedValue('forbidden');
+
+    const response = await GET(
+      makeRequest('http://localhost/api/data/product'),
+      makeContext('product'),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toMatchObject({ success: false, code: 'FORBIDDEN' });
+    expect(body.error).toBe('No tienes permiso para acceder a este recurso.');
+    expect(body.error).not.toContain('duena@');
+    expect(getAllMock).not.toHaveBeenCalled();
+  });
+
+  it('no permite modificar datos sin una sesión autorizada', async () => {
+    getServerAccessStatusMock.mockResolvedValue('unauthenticated');
+
+    const response = await POST(
+      makeRequest('http://localhost/api/data/product', 'POST', productInput),
+      makeContext('product'),
+    );
+
+    expect(response.status).toBe(401);
+    expect(createMock).not.toHaveBeenCalled();
   });
 });

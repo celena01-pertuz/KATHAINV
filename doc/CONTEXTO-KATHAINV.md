@@ -56,7 +56,7 @@ Los esquemas Zod van en `data/_schema/` y se registran en `data/_schema/registry
 3. Consultar precio y disponibilidad escaneando.
 4. Registrar ventas escaneando, con descuento automático y aviso de agotado.
 5. Ver los productos más y menos vendidos en un rango de fechas.
-6. Iniciar sesión, registrarse y cambiar la contraseña, con JWT y contraseñas cifradas con bcrypt.
+6. Iniciar sesión, registrarse y cambiar la contraseña con Supabase Auth. Esta es una desviación explícita de la Tarea 3.3 del plan, que propone JWT y `user.json`: Supabase ya está activo en Vercel y los archivos JSON son de solo lectura en producción (sección 9), por lo que guardar usuarios ahí impediría el registro en el despliegue. El acceso a páginas y API de datos se limita en el servidor a correos confirmados incluidos en `ALLOWED_EMAILS`; la lista se compara sin espacios y sin distinguir mayúsculas.
 
 **No incluye:** facturación electrónica, varias sucursales, ventas por internet, impuestos, deudas con proveedores, fotos de productos ni impresión de etiquetas.
 

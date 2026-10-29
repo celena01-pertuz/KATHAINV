@@ -3,6 +3,7 @@ import { count, create, getAll, getById, remove, update } from '@/lib/json-db';
 import { now } from '@/lib/utils';
 import { getSchema } from '@data/_schema/registry';
 import { z } from 'zod';
+import { getServerAccessStatus } from '@/lib/auth/server-access';
 
 function apiError(error: string, code: string, status: number) {
   return NextResponse.json(
@@ -27,10 +28,33 @@ function apiSuccess<T>(data: T, status = 200) {
   );
 }
 
+async function authorizationError() {
+  try {
+    const status = await getServerAccessStatus();
+    if (status === 'unauthenticated') {
+      return apiError('Inicia sesión para continuar.', 'UNAUTHORIZED', 401);
+    }
+    if (status === 'forbidden') {
+      return apiError('No tienes permiso para acceder a este recurso.', 'FORBIDDEN', 403);
+    }
+    return null;
+  } catch (error) {
+    console.error('No se pudo validar el acceso a la API de datos.', error);
+    return apiError(
+      'No fue posible verificar el acceso. Inténtalo más tarde.',
+      'AUTH_UNAVAILABLE',
+      503,
+    );
+  }
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ collection: string }> },
 ) {
+  const denied = await authorizationError();
+  if (denied) return denied;
+
   const { collection } = await context.params;
   const id = new URL(request.url).searchParams.get('id');
 
@@ -61,7 +85,13 @@ export async function GET(
   }
 }
 
-export async function POST(request: NextRequest, context: { params: Promise<{ collection: string }> }) {
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ collection: string }> },
+) {
+  const denied = await authorizationError();
+  if (denied) return denied;
+
   const { collection } = await context.params;
   const schema = getSchema(collection);
 
@@ -72,21 +102,39 @@ export async function POST(request: NextRequest, context: { params: Promise<{ co
   try {
     const body = await request.json();
     const createSchema =
-      schema instanceof z.ZodObject ? schema.omit({ id: true, createdAt: true, updatedAt: true }) : schema;
+      schema instanceof z.ZodObject
+        ? schema.omit({ id: true, createdAt: true, updatedAt: true })
+        : schema;
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) {
-      return apiError(parsed.error.issues.map((issue) => issue.message).join(', '), 'VALIDATION_ERROR', 400);
+      return apiError(
+        parsed.error.issues.map((issue) => issue.message).join(', '),
+        'VALIDATION_ERROR',
+        400,
+      );
     }
 
     const created = await create(collection, parsed.data as never);
     return apiSuccess(created, 201);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error inesperado';
-    return apiError(message, error instanceof Error && 'code' in error ? String((error as { code?: string }).code) : 'IO_ERROR', 500);
+    return apiError(
+      message,
+      error instanceof Error && 'code' in error
+        ? String((error as { code?: string }).code)
+        : 'IO_ERROR',
+      500,
+    );
   }
 }
 
-export async function PUT(request: NextRequest, context: { params: Promise<{ collection: string }> }) {
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ collection: string }> },
+) {
+  const denied = await authorizationError();
+  if (denied) return denied;
+
   const { collection } = await context.params;
   const schema = getSchema(collection);
 
@@ -98,10 +146,18 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ col
     const body = await request.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      return apiError(parsed.error.issues.map((issue) => issue.message).join(', '), 'VALIDATION_ERROR', 400);
+      return apiError(
+        parsed.error.issues.map((issue) => issue.message).join(', '),
+        'VALIDATION_ERROR',
+        400,
+      );
     }
 
-    const updated = await update(collection, String((parsed.data as { id: string }).id), parsed.data as never);
+    const updated = await update(
+      collection,
+      String((parsed.data as { id: string }).id),
+      parsed.data as never,
+    );
     if (!updated) {
       return apiError('Registro no encontrado.', 'NOT_FOUND', 404);
     }
@@ -117,6 +173,9 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ collection: string }> },
 ) {
+  const denied = await authorizationError();
+  if (denied) return denied;
+
   const { collection } = await context.params;
   const id = new URL(request.url).searchParams.get('id');
 
@@ -141,11 +200,20 @@ export async function DELETE(
   }
 }
 
-export async function PATCH(request: NextRequest, context: { params: Promise<{ collection: string }> }) {
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ collection: string }> },
+) {
   return POST(request, context);
 }
 
-export async function HEAD(_request: NextRequest, context: { params: Promise<{ collection: string }> }) {
+export async function HEAD(
+  _request: NextRequest,
+  context: { params: Promise<{ collection: string }> },
+) {
+  const denied = await authorizationError();
+  if (denied) return denied;
+
   const { collection } = await context.params;
 
   if (!getSchema(collection)) {
