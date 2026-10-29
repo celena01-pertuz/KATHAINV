@@ -8,8 +8,23 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
-      <body className="antialiased bg-gray-950 text-white">{children}</body>
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try {
+              const savedTheme = localStorage.getItem('kathainv-theme');
+              const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              const shouldUseDark = savedTheme === 'dark' || (savedTheme !== 'light' && systemPrefersDark);
+              document.documentElement.classList.toggle('dark', shouldUseDark);
+            } catch (error) {
+              console.error('No se pudo leer el tema guardado:', error);
+              document.documentElement.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches);
+            }`,
+          }}
+        />
+      </head>
+      <body className="antialiased bg-background text-foreground">{children}</body>
     </html>
   );
 }
