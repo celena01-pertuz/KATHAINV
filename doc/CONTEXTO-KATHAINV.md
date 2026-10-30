@@ -56,8 +56,12 @@ Los esquemas Zod van en `data/_schema/` y se registran en `data/_schema/registry
 Requisitos para las tareas 3.3 y 3.4:
 
 - En cada venta se elige el tipo de pago: **contado**, **fiado** o **pago parcial**. El pago parcial registra el monto pagado. Para fiar o registrar un pago parcial, el cliente debe estar registrado.
-- Un **abono** es un pago que el cliente hace después para reducir su deuda. Cada abono guarda fecha, monto y una nota opcional. El monto no puede superar el saldo pendiente. Los abonos se pueden anular, pero no borrar.
+- Un **abono** es un pago que el cliente hace después para reducir su deuda. Se registra por cliente y el sistema lo reparte automáticamente entre sus ventas pendientes, empezando por la deuda más antigua. Cada abono guarda fecha, monto y una nota opcional. El monto no puede superar la deuda total pendiente. El reparto bloquea las filas necesarias para que dos abonos simultáneos no excedan el saldo; al anular un abono se revierte su reparto, pero no se borra el registro.
 - El saldo del cliente se calcula a partir de las ventas fiadas menos los abonos; nunca se escribe ni se ajusta a mano.
+- La tabla de ventas conserva desde su creación el estado activa/anulada y los datos de auditoría de anulación. La función que anula una venta y devuelve su stock se implementará en una tarea posterior.
+- Los pagos registran su forma: efectivo, transferencia/Nequi o tarjeta.
+- El teléfono del cliente se guarda normalizado como `57` seguido del número, solo dígitos. Si ya existe otro cliente con ese teléfono, se muestra un aviso sin impedir el registro.
+- No se registran nombres, teléfonos ni documentos de clientes en logs ni en mensajes de error.
 - La ficha del cliente muestra **“Al día”** o **“Debe $X”**, junto con el detalle de ventas fiadas, abonos y saldo.
 - Hay un listado de **“Quién me debe”**, ordenado de mayor a menor deuda.
 - El botón **“Recordar por WhatsApp”** abre un enlace `wa.me` con un mensaje amable que incluye el saldo. La persona envía el mensaje manualmente; no hay envío automático.

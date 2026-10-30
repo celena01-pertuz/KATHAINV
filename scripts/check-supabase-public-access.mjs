@@ -46,31 +46,34 @@ if (!url || !key) {
   process.exit(0);
 }
 
-let endpoint;
+let baseUrl;
 try {
-  endpoint = new URL('/rest/v1/products?select=id&limit=1', url);
+  baseUrl = new URL(url);
 } catch {
   console.log('NO CONCLUYENTE: NEXT_PUBLIC_SUPABASE_URL no es una URL válida.');
   process.exit(0);
 }
 
-let response;
-try {
-  response = await fetch(endpoint, {
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-    },
-  });
-} catch {
-  console.log('NO CONCLUYENTE: error de red al conectar con Supabase.');
-  process.exit(0);
-}
+for (const table of ['products', 'customers']) {
+  let response;
+  try {
+    const endpoint = new URL(`/rest/v1/${table}?select=id&limit=1`, baseUrl);
+    response = await fetch(endpoint, {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+    });
+  } catch {
+    console.log(`NO CONCLUYENTE: ${table}, error de red al conectar con Supabase.`);
+    continue;
+  }
 
-if (response.status === 401 || response.status === 403 || response.status === 404) {
-  console.log(`OK: la clave pública no puede leer products (HTTP ${response.status}).`);
-} else if (response.status === 200) {
-  console.log('FALLO DE SEGURIDAD: la clave pública pudo leer products (HTTP 200).');
-} else {
-  console.log(`NO CONCLUYENTE: respuesta HTTP ${response.status}, distinta de 200, 401, 403 o 404.`);
+  if (response.status === 401 || response.status === 403) {
+    console.log(`OK: la clave pública no puede leer ${table} (HTTP ${response.status}).`);
+  } else if (response.status === 200) {
+    console.log(`FALLO DE SEGURIDAD: la clave pública pudo leer ${table} (HTTP 200).`);
+  } else {
+    console.log(`NO CONCLUYENTE: ${table}, respuesta HTTP ${response.status}.`);
+  }
 }
