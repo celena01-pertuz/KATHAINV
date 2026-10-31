@@ -54,7 +54,7 @@ try {
   process.exit(0);
 }
 
-for (const table of ['products', 'customers']) {
+for (const table of ['products', 'customers', 'sales', 'sale_items', 'sale_payments']) {
   let response;
   try {
     const endpoint = new URL(`/rest/v1/${table}?select=id&limit=1`, baseUrl);
