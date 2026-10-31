@@ -12,7 +12,10 @@ interface SaleRow {
   total: number;
   status: SaleRecord['status'];
   customer_id: string | null;
-  customer: { name: string } | { name: string }[] | null;
+  customer:
+    | { name: string; phone: string }
+    | { name: string; phone: string }[]
+    | null;
 }
 
 interface SaleRpcRow {
@@ -33,6 +36,9 @@ function mapSale(row: SaleRow): SaleRecord {
     customerName: Array.isArray(row.customer)
       ? (row.customer[0]?.name ?? null)
       : (row.customer?.name ?? null),
+    customerPhone: Array.isArray(row.customer)
+      ? (row.customer[0]?.phone ?? null)
+      : (row.customer?.phone ?? null),
   };
 }
 
@@ -41,7 +47,7 @@ export async function listRecentSales(limit = 20): Promise<SaleRecord[]> {
   const { data, error } = await client
     .from('sales')
     .select(
-      'id, sale_number, sold_at, payment_type, total, status, customer_id, customer:customers(name)',
+      'id, sale_number, sold_at, payment_type, total, status, customer_id, customer:customers(name, phone)',
     )
     .order('sold_at', { ascending: false })
     .limit(limit);

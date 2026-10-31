@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import type { CustomerRecord } from '@/modules/customers/types';
 import { normalizeProductCode } from '@/modules/products/code-utils';
 import type { ProductRecord } from '@/modules/products/types';
+import { buildWhatsAppUrl } from '@/modules/receipts/whatsapp';
 import { createSaleRequestKey } from '../request-key';
 import type {
   SalePaymentMethod,
@@ -71,6 +72,15 @@ export function SalesManager() {
   const [cameraMessage, setCameraMessage] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [receiptLinks, setReceiptLinks] = useState<Record<number, string>>({});
+  const [receiptLoadingId, setReceiptLoadingId] = useState<number | null>(null);
+  const [receiptError, setReceiptError] = useState('');
+  const [receiptNotice, setReceiptNotice] = useState('');
+  const [confirmedSale, setConfirmedSale] = useState<{
+    id: number;
+    saleNumber: string;
+    customerPhone: string | null;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<ScannerControls | null>(null);
@@ -346,6 +356,7 @@ export function SalesManager() {
     }
 
     setSaving(true);
+    setConfirmedSale(null);
     try {
       const response = await fetch('/api/data/sales', {
         method: 'POST',
@@ -372,6 +383,11 @@ export function SalesManager() {
       const body = (await response.json()) as ApiResponse<SaleResult>;
       if (!body.data) throw new Error('No se pudo confirmar la venta. Inténtalo más tarde.');
 
+      setConfirmedSale({
+        id: body.data.saleId,
+        saleNumber: body.data.saleNumber,
+        customerPhone: selectedCustomer?.phone ?? null,
+      });
       setNotice(`Venta ${body.data.saleNumber} registrada correctamente.`);
       setCart([]);
       setSelectedCustomer(null);
@@ -392,6 +408,140 @@ export function SalesManager() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function createReceipt(saleId: number, saleNumber: string) {
+    setReceiptError('');
+    setReceiptNotice('');
+    if (
+      !window.confirm(
+        'Se generará un enlace nuevo y, si ya existe uno, se revocará el anterior. ¿Continuar?',
+      )
+    ) {
+      return;
+    }
+
+    setReceiptLoadingId(saleId);
+    try {
+      const response = await fetch('/api/receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saleId }),
+      });
+      if (!response.ok) throw new Error(await responseError(response));
+      const body = (await response.json()) as ApiResponse<{ url: string }>;
+      const url = body.data?.url;
+      if (!url) throw new Error('No se pudo crear el enlace del comprobante.');
+
+      setReceiptLinks((current) => ({ ...current, [saleId]: url }));
+      setReceiptNotice(`Enlace del comprobante para ${saleNumber} listo.`);
+    } catch (receiptCreateError) {
+      setReceiptError(
+        receiptCreateError instanceof Error
+          ? receiptCreateError.message
+          : 'No se pudo crear el enlace del comprobante.',
+      );
+    } finally {
+      setReceiptLoadingId(null);
+    }
+  }
+
+  async function revokeReceipt(saleId: number) {
+    setReceiptError('');
+    setReceiptNotice('');
+    if (!window.confirm('¿Revocar este enlace del comprobante?')) return;
+
+    setReceiptLoadingId(saleId);
+    try {
+      const response = await fetch(`/api/receipts/${saleId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error(await responseError(response));
+      setReceiptLinks((current) => {
+        const remaining = { ...current };
+        delete remaining[saleId];
+        return remaining;
+      });
+      setReceiptNotice('El enlace del comprobante fue revocado.');
+    } catch (receiptRevokeError) {
+      setReceiptError(
+        receiptRevokeError instanceof Error
+          ? receiptRevokeError.message
+          : 'No se pudo revocar el enlace del comprobante.',
+      );
+    } finally {
+      setReceiptLoadingId(null);
+    }
+  }
+
+  async function copyReceiptLink(url: string) {
+    setReceiptError('');
+    setReceiptNotice('');
+    try {
+      await navigator.clipboard.writeText(url);
+      setReceiptNotice('Enlace copiado.');
+    } catch {
+      setReceiptError('No se pudo copiar el enlace. Puedes seleccionar y copiar la dirección.');
+    }
+  }
+
+  function receiptActions(saleId: number, saleNumber: string, phone: string | null) {
+    const url = receiptLinks[saleId];
+    const whatsappUrl = url ? buildWhatsAppUrl(phone, saleNumber, url) : null;
+    const busy = receiptLoadingId === saleId;
+
+    return (
+      <div className="mt-3 flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => void createReceipt(saleId, saleNumber)}
+          disabled={busy}
+          className="min-h-11 w-full rounded-md border border-primary px-4 font-semibold text-primary disabled:opacity-60 sm:w-auto"
+        >
+          {busy ? 'Procesando…' : 'Comprobante'}
+        </button>
+        {url && (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {whatsappUrl && (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-11 items-center justify-center rounded-md bg-primary px-4 text-center font-semibold text-primary-foreground"
+              >
+                Enviar por WhatsApp
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => void copyReceiptLink(url)}
+              className="min-h-11 rounded-md border border-border px-4 font-medium"
+            >
+              Copiar enlace
+            </button>
+            <button
+              type="button"
+              onClick={() => void revokeReceipt(saleId)}
+              disabled={busy}
+              className="min-h-11 rounded-md border border-danger px-4 font-medium text-danger disabled:opacity-60"
+            >
+              Revocar enlace
+            </button>
+          </div>
+        )}
+        {url && (
+          <label className="block text-xs text-muted">
+            Enlace del comprobante
+            <input
+              type="url"
+              readOnly
+              autoComplete="off"
+              value={url}
+              onFocus={(event) => event.currentTarget.select()}
+              className="mt-1 min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+            />
+          </label>
+        )}
+      </div>
+    );
   }
 
   function changeQuantity(productId: string, quantity: number) {
@@ -420,6 +570,22 @@ export function SalesManager() {
         <p role="alert" className="mb-4 rounded-md bg-danger/10 p-3 text-sm">
           {error}
         </p>
+      )}
+      {receiptNotice && (
+        <p role="status" className="mb-4 rounded-md bg-success/10 p-3 text-sm font-medium">
+          {receiptNotice}
+        </p>
+      )}
+      {receiptError && (
+        <p role="alert" className="mb-4 rounded-md bg-danger/10 p-3 text-sm">
+          {receiptError}
+        </p>
+      )}
+      {confirmedSale && (
+        <section className="mb-4 rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-semibold">Comprobante de {confirmedSale.saleNumber}</h2>
+          {receiptActions(confirmedSale.id, confirmedSale.saleNumber, confirmedSale.customerPhone)}
+        </section>
       )}
 
       <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
@@ -730,6 +896,7 @@ export function SalesManager() {
                   {' · '}
                   {sale.customerName ?? 'Sin cliente'}
                 </p>
+                {receiptActions(sale.id, sale.saleNumber, sale.customerPhone)}
               </li>
             ))}
           </ul>

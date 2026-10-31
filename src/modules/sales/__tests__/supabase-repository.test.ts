@@ -63,7 +63,7 @@ describe('repositorio Supabase de ventas', () => {
           total: 25000,
           status: 'active',
           customer_id: 'customer_1',
-          customer: { name: 'Cliente de prueba' },
+          customer: { name: 'Cliente de prueba', phone: '573001112233' },
         },
       ],
       error: null,
@@ -82,11 +82,12 @@ describe('repositorio Supabase de ventas', () => {
         status: 'active',
         customerId: 'customer_1',
         customerName: 'Cliente de prueba',
+        customerPhone: '573001112233',
       },
     ]);
     expect(fromMock).toHaveBeenCalledWith('sales');
     expect(selectMock).toHaveBeenCalledWith(
-      'id, sale_number, sold_at, payment_type, total, status, customer_id, customer:customers(name)',
+      'id, sale_number, sold_at, payment_type, total, status, customer_id, customer:customers(name, phone)',
     );
     expect(orderMock).toHaveBeenCalledWith('sold_at', { ascending: false });
     expect(limitMock).toHaveBeenCalledWith(10);
