@@ -17,6 +17,7 @@ const queryBuilder = {
   maybeSingle: vi.fn(),
   neq: vi.fn(),
   select: vi.fn(),
+  single: vi.fn(),
 };
 
 beforeEach(() => {
