@@ -13,10 +13,12 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'border border-transparent bg-primary text-primary-foreground enabled:hover:brightness-110',
+  primary: 'border border-transparent bg-primary text-primary-foreground enabled:hover:bg-primary-hover',
   secondary: 'border border-border bg-surface text-foreground enabled:hover:bg-background',
-  outline: 'border border-primary bg-transparent text-primary enabled:hover:bg-primary/10',
-  danger: 'border border-transparent bg-danger text-primary-foreground enabled:hover:brightness-110',
+  outline:
+    'border border-primary bg-transparent text-primary enabled:hover:bg-primary-soft enabled:hover:text-primary-soft-foreground',
+  danger:
+    'border border-transparent bg-danger text-primary-foreground enabled:hover:brightness-110 dark:text-background',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

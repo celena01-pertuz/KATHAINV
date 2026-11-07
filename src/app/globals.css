@@ -4,13 +4,16 @@
 
 :root {
   color-scheme: light;
-  --color-background: 80 20% 97%;
-  --color-foreground: 150 22% 14%;
-  --color-surface: 0 0% 100%;
-  --color-border: 140 12% 83%;
-  --color-muted: 145 10% 36%;
-  --color-primary: 140 31% 28%;
+  --color-background: 36 42.857% 93.137%;
+  --color-foreground: 27.273 14.667% 14.706%;
+  --color-surface: 37.5 50% 96.863%;
+  --color-border: 35 30% 84.314%;
+  --color-muted: 30 12.632% 37.255%;
+  --color-primary: 341.489 38.525% 47.843%;
   --color-primary-foreground: 0 0% 100%;
+  --color-primary-hover: 340.976 40.196% 40%;
+  --color-primary-soft: 342.353 43.59% 92.353%;
+  --color-primary-soft-foreground: 340.976 40.196% 40%;
   --color-success: 145 63% 27%;
   --color-warning: 39 100% 25%;
   --color-danger: 8 68% 39%;
@@ -35,9 +38,9 @@
   --space-12: 3rem;
   --space-16: 4rem;
 
-  --shadow-sm: 0 1px 2px 0 hsl(150 22% 14% / 0.08);
-  --shadow-md: 0 4px 12px -2px hsl(150 22% 14% / 0.12);
-  --shadow-lg: 0 16px 40px -12px hsl(150 22% 14% / 0.18);
+  --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.08);
+  --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.12);
+  --shadow-lg: 0 16px 40px -12px hsl(0 0% 0% / 0.18);
 
   --font-family-sans: Arial, "Helvetica Neue", sans-serif;
   --font-size-xs: 0.75rem;
@@ -59,13 +62,16 @@
 
 .dark {
   color-scheme: dark;
-  --color-background: 150 20% 9%;
-  --color-foreground: 120 14% 94%;
-  --color-surface: 150 16% 13%;
-  --color-border: 145 11% 29%;
-  --color-muted: 135 12% 73%;
-  --color-primary: 110 25% 70%;
-  --color-primary-foreground: 150 20% 10%;
+  --color-background: 0 0% 7.843%;
+  --color-foreground: 0 0% 98.039%;
+  --color-surface: 0 0% 11.765%;
+  --color-border: 0 0% 18.039%;
+  --color-muted: 0 0% 70.196%;
+  --color-primary: 341.489 38.525% 47.843%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-primary-hover: 340.606 39.13% 50.392%;
+  --color-primary-soft: 0 0% 16.471%;
+  --color-primary-soft-foreground: 0 0% 98.039%;
   --color-success: 140 52% 69%;
   --color-warning: 41 85% 72%;
   --color-danger: 8 89% 78%;
@@ -98,13 +104,68 @@ a {
   color: hsl(var(--color-foreground));
 }
 
+.dark [class~='text-primary'] {
+  color: hsl(var(--color-foreground));
+}
+
+.dark [class~='dark:text-primary-foreground'] {
+  color: hsl(var(--color-primary-foreground));
+}
+
+.dark [class~='border-primary'] {
+  border-color: hsl(var(--color-border));
+}
+
+.dark [class~='outline-primary'] {
+  outline-color: hsl(var(--color-foreground));
+}
+
+.dark [class~='focus-visible:outline-primary']:focus-visible {
+  outline-color: hsl(var(--color-foreground));
+}
+
+.dark [class~='ring-primary'] {
+  --tw-ring-color: hsl(var(--color-foreground));
+}
+
+.dark [class~='focus-visible:ring-primary']:focus-visible {
+  --tw-ring-color: hsl(var(--color-foreground));
+}
+
+.dark [class~='bg-primary/10'],
+.dark [class~='hover:bg-primary/10']:hover {
+  background-color: hsl(var(--color-surface));
+}
+
+.dark ::selection {
+  background-color: hsl(var(--color-surface));
+  color: hsl(var(--color-foreground));
+}
+
 @media print {
   @page {
     margin: 5mm;
   }
 
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
   body * {
     visibility: hidden !important;
+  }
+
+  .product-label-print-area,
+  .product-label-print-area *,
+  .receipt-print-area,
+  .receipt-print-area * {
+    background-color: #fff !important;
+    background-image: none !important;
+    border-color: #000 !important;
+    box-shadow: none !important;
+    color: #000 !important;
   }
 
   .product-label-print-area,

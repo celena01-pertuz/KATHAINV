@@ -107,14 +107,14 @@ export function ReportsManager() {
     <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8 lg:px-10">
       <header className="mb-6">
         <h1 className="text-2xl font-bold sm:text-3xl">Reportes</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-muted">
           Productos más y menos vendidos por periodo.
         </p>
       </header>
 
       <section
         aria-label="Rango de fechas"
-        className="mb-6 rounded-xl border border-border bg-card p-4 sm:p-5"
+        className="mb-6 rounded-xl border border-border bg-surface p-4 sm:p-5"
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {quickPeriods.map((period) => (
@@ -153,21 +153,21 @@ export function ReportsManager() {
           </label>
           <button
             type="submit"
-            className="min-h-11 self-end rounded-lg bg-primary px-5 font-semibold text-primary-foreground hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="min-h-11 self-end rounded-lg bg-primary px-5 font-semibold text-primary-foreground hover:opacity-90 dark:hover:bg-primary-hover dark:hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             Consultar
           </button>
         </form>
-        <p className="mt-3 text-xs text-muted-foreground">Fechas en zona horaria de Colombia.</p>
+        <p className="mt-3 text-xs text-muted">Fechas en zona horaria de Colombia.</p>
         {rangeError && (
-          <p role="alert" className="mt-2 text-sm text-destructive">
+          <p role="alert" className="mt-2 text-sm text-danger">
             {rangeError}
           </p>
         )}
       </section>
 
       {error && (
-        <p role="alert" className="mb-4 rounded-lg border border-destructive/30 p-4 text-sm">
+        <p role="alert" className="mb-4 rounded-lg border border-danger/30 p-4 text-sm">
           {error}
         </p>
       )}
@@ -181,7 +181,7 @@ export function ReportsManager() {
         <SummaryCard label="Ventas" value={numberFormatter.format(report?.summary.salesCount ?? 0)} />
       </section>
 
-      <section className="rounded-xl border border-border bg-card">
+      <section className="rounded-xl border border-border bg-surface">
         <div
           role="tablist"
           aria-label="Orden de productos"
@@ -212,7 +212,7 @@ export function ReportsManager() {
             <p className="mb-4 rounded-lg bg-muted p-3 text-sm">No hay ventas en este rango</p>
           )}
           {!loading && !error && products.length === 0 && report?.summary.salesCount !== 0 && (
-            <p className="text-sm text-muted-foreground">No hay productos para mostrar.</p>
+            <p className="text-sm text-muted">No hay productos para mostrar.</p>
           )}
           {!loading && visibleProducts.length > 0 && (
             <ul className="space-y-3">
@@ -240,8 +240,8 @@ export function ReportsManager() {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-xl border border-border bg-card p-4">
-      <h2 className="text-sm text-muted-foreground">{label}</h2>
+    <article className="rounded-xl border border-border bg-surface p-4">
+      <h2 className="text-sm text-muted">{label}</h2>
       <p className="mt-1 text-xl font-bold">{value}</p>
     </article>
   );
@@ -263,7 +263,7 @@ function TabButton({
       aria-selected={selected}
       onClick={onClick}
       className={`min-h-11 rounded-lg px-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
-        selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-primary/10'
+        selected ? 'bg-primary text-primary-foreground' : 'text-muted hover:bg-primary/10'
       }`}
     >
       {children}
@@ -276,17 +276,17 @@ function ProductCard({ product }: { product: ReportProduct }) {
     <article className="grid gap-2 rounded-lg border border-border p-4 sm:grid-cols-[1fr_auto] sm:items-center">
       <div className="min-w-0">
         <p className="font-semibold">{product.name}</p>
-        <p className="mt-1 break-words text-sm text-muted-foreground">
+        <p className="mt-1 break-words text-sm text-muted">
           {product.code} · Talla: {product.size || '—'} · Color: {product.color || '—'}
         </p>
       </div>
       <dl className="grid grid-cols-2 gap-4 text-sm sm:text-right">
         <div>
-          <dt className="text-muted-foreground">Unidades</dt>
+          <dt className="text-muted">Unidades</dt>
           <dd className="font-semibold">{numberFormatter.format(product.unitsSold)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Total vendido</dt>
+          <dt className="text-muted">Total vendido</dt>
           <dd className="font-semibold">{currencyFormatter.format(product.totalSold)}</dd>
         </div>
       </dl>

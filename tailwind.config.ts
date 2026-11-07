@@ -12,6 +12,10 @@ const config: Config = {
         muted: 'hsl(var(--color-muted) / <alpha-value>)',
         primary: 'hsl(var(--color-primary) / <alpha-value>)',
         'primary-foreground': 'hsl(var(--color-primary-foreground) / <alpha-value>)',
+        'primary-hover': 'hsl(var(--color-primary-hover) / <alpha-value>)',
+        'primary-soft': 'hsl(var(--color-primary-soft) / <alpha-value>)',
+        'primary-soft-foreground':
+          'hsl(var(--color-primary-soft-foreground) / <alpha-value>)',
         success: 'hsl(var(--color-success) / <alpha-value>)',
         warning: 'hsl(var(--color-warning) / <alpha-value>)',
         danger: 'hsl(var(--color-danger) / <alpha-value>)',

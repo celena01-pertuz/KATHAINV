@@ -637,7 +637,7 @@ export function SalesManager() {
           {cameraMessage && <p role="status" className="mt-2 text-sm">{cameraMessage}</p>}
           <video
             ref={videoRef}
-            className={`mt-3 w-full rounded-md bg-black ${cameraActive ? 'block' : 'hidden'}`}
+            className={`mt-3 w-full rounded-md bg-background ${cameraActive ? 'block' : 'hidden'}`}
             aria-label="Vista de la cámara para leer el código"
             muted
             playsInline
@@ -751,7 +751,7 @@ export function SalesManager() {
                 }}
                 className={`min-h-11 rounded-md border px-3 font-medium ${
                   paymentType === value
-                    ? 'border-primary bg-primary/10 text-primary'
+                    ? 'border-primary bg-primary/10 text-primary dark:bg-primary dark:text-primary-foreground'
                     : 'border-border'
                 }`}
               >

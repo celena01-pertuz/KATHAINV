@@ -88,7 +88,7 @@ export function BottomNav() {
                   aria-current={isActive ? 'page' : undefined}
                   className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-center text-xs font-medium focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary md:min-h-16 md:flex-row md:gap-2 md:px-4 md:text-sm ${
                     isActive
-                      ? 'text-primary'
+                      ? 'text-primary dark:bg-primary dark:text-primary-foreground'
                       : 'text-muted transition-colors hover:bg-background hover:text-foreground'
                   }`}
                 >

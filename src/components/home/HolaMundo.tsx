@@ -68,7 +68,7 @@ export function HolaMundo() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
       <div className="absolute left-1/4 top-0 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-      <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-success/10 blur-3xl" />
+      <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-8 sm:px-8 lg:px-12">
@@ -129,7 +129,7 @@ export function HolaMundo() {
               className="text-5xl font-semibold tracking-[-0.09em] text-foreground sm:text-6xl lg:text-7xl"
             >
               Hola,
-              <span className="mt-2 block bg-gradient-to-r from-primary via-foreground to-muted bg-clip-text text-transparent">
+              <span className="mt-2 block bg-gradient-to-r from-primary via-foreground to-muted bg-clip-text text-transparent dark:from-foreground">
                 Mundo
               </span>
             </motion.h1>
@@ -149,7 +149,7 @@ export function HolaMundo() {
               transition={{ duration: 0.7, delay: 0.28 }}
               className="mt-8 flex flex-wrap items-center gap-4"
             >
-              <button className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition hover:brightness-110">
+              <button className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition hover:brightness-110 dark:hover:bg-primary-hover dark:hover:brightness-100">
                 Empezar ahora
               </button>
               <button className="rounded-full border border-border bg-surface/70 px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-surface">

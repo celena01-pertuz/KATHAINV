@@ -135,7 +135,7 @@ export function ProductBarcodeCamera({ onCodeScanned }: ProductBarcodeCameraProp
       )}
       <video
         ref={videoRef}
-        className={`mt-3 w-full rounded-md bg-black ${cameraActive ? 'block' : 'hidden'}`}
+        className={`mt-3 w-full rounded-md bg-background ${cameraActive ? 'block' : 'hidden'}`}
         aria-label="Vista de la cámara para leer el código"
         muted
         playsInline
