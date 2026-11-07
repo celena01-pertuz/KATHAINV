@@ -5,7 +5,8 @@ export type NavigationIcon =
   | 'scanner'
   | 'sales'
   | 'purchases'
-  | 'reports';
+  | 'reports'
+  | 'more';
 
 export interface NavigationItem {
   href: string;
@@ -13,12 +14,15 @@ export interface NavigationItem {
   label: string;
 }
 
-export const navigationItems: NavigationItem[] = [
+export const primaryNavigationItems: NavigationItem[] = [
   { href: '/', icon: 'home', label: 'Inicio' },
+  { href: '/sales', icon: 'sales', label: 'Ventas' },
   { href: '/products', icon: 'products', label: 'Productos' },
+];
+
+export const moreNavigationItems: NavigationItem[] = [
   { href: '/customers', icon: 'customers', label: 'Clientes' },
   { href: '/scan', icon: 'scanner', label: 'Escáner' },
-  { href: '/sales', icon: 'sales', label: 'Ventas' },
-  { href: '/purchases', icon: 'purchases', label: 'Compras' },
+  { href: '/purchases', icon: 'purchases', label: 'Proveedores' },
   { href: '/reports', icon: 'reports', label: 'Reportes' },
 ];

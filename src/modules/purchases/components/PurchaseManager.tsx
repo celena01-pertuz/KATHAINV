@@ -223,9 +223,9 @@ export function PurchaseManager() {
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold">Registrar compra</h1>
+        <h1 className="text-2xl font-bold">Proveedores</h1>
         <p className="mt-1 text-sm text-muted">
-          Compra de contado: al guardar, las unidades se suman al inventario.
+          Compra de mercancía a tus proveedores
         </p>
       </header>
 
@@ -305,12 +305,13 @@ export function PurchaseManager() {
             onClick={() => setSupplierFormOpen((current) => !current)}
             className="min-h-11 rounded-md border border-primary px-4 font-semibold text-primary"
           >
-            {supplierFormOpen ? 'Elegir existente' : 'Crear proveedor'}
+            {supplierFormOpen ? 'Elegir existente' : 'Nuevo proveedor'}
           </button>
         </div>
 
         {supplierFormOpen ? (
           <form onSubmit={(event) => void submitSupplier(event)} className="mt-3">
+            <h3 className="mb-3 text-base font-semibold">Nuevo proveedor</h3>
             <label htmlFor="supplier-name" className="mb-2 block font-medium">
               Nombre del proveedor
             </label>
@@ -353,7 +354,7 @@ export function PurchaseManager() {
 
       <form onSubmit={(event) => void submitPurchase(event)} className="mt-4">
         <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
-          <h2 className="text-lg font-semibold">Detalle de compra de contado</h2>
+          <h2 className="text-lg font-semibold">Compra a proveedor</h2>
           <label htmlFor="purchase-quantity" className="mb-2 mt-3 block font-medium">
             Cantidad
           </label>
@@ -398,7 +399,7 @@ export function PurchaseManager() {
             disabled={savingPurchase || !product || !supplierId}
             className="mt-4 min-h-11 w-full rounded-md bg-primary px-4 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {savingPurchase ? 'Guardando compra…' : 'Registrar compra'}
+            {savingPurchase ? 'Guardando compra…' : 'Guardar compra'}
           </button>
         </section>
       </form>
@@ -408,7 +409,7 @@ export function PurchaseManager() {
         {loading ? (
           <p className="mt-3 text-sm text-muted">Cargando compras…</p>
         ) : purchases.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">Todavía no hay compras registradas.</p>
+          <p className="mt-3 text-sm text-muted">Todavía no hay compras recientes.</p>
         ) : (
           <ul className="mt-3 divide-y divide-border">
             {purchases.map((purchase) => (
