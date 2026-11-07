@@ -65,6 +65,7 @@ Requisitos para las tareas 3.3 y 3.4:
 - La ficha del cliente muestra **“Al día”** o **“Debe $X”**, junto con el detalle de ventas fiadas, abonos y saldo.
 - Hay un listado de **“Quién me debe”**, ordenado de mayor a menor deuda.
 - El botón **“Recordar por WhatsApp”** abre un enlace `wa.me` con un mensaje amable que incluye el saldo. La persona envía el mensaje manualmente; no hay envío automático.
+- Cada venta puede tener un comprobante público revocable. El servidor guarda solo el hash de un token aleatorio; la página `/receipt/[token]` no muestra datos personales, no se indexa ni se almacena en caché. El envío del enlace por WhatsApp siempre requiere confirmación manual.
 - Los datos de clientes y deudas solo son visibles para los correos incluidos en `ALLOWED_EMAILS`.
 - Antes de usar el sistema con deudas reales, los datos deben guardarse en Supabase (Fase 4), porque Vercel no permite escribir en los archivos JSON.
 
@@ -78,6 +79,7 @@ Requisitos para las tareas 3.3 y 3.4:
 4. Registrar ventas escaneando, con descuento automático y aviso de agotado.
 5. Ver los productos más y menos vendidos en un rango de fechas.
 6. Iniciar sesión, registrarse y cambiar la contraseña con Supabase Auth. Esta es una desviación explícita de la Tarea 3.3 del plan, que propone JWT y `user.json`: Supabase ya está activo en Vercel y los archivos JSON son de solo lectura en producción (sección 9), por lo que guardar usuarios ahí impediría el registro en el despliegue. El acceso a páginas y API de datos se limita en el servidor a correos confirmados incluidos en `ALLOWED_EMAILS`; la lista se compara sin espacios y sin distinguir mayúsculas.
+7. Generar y revocar enlaces de comprobantes desde ventas, y consultar el comprobante público en `/receipt/[token]`.
 
 **No incluye:** facturación electrónica, varias sucursales, ventas por internet, impuestos, deudas con proveedores ni fotos de productos.
 
@@ -97,6 +99,7 @@ La implementación de productos protege las páginas y API con la validación de
 | `/scan` | Consultar un producto por código manual, pistola lectora o cámara; buscar por nombre y ofrecer registrar códigos desconocidos |
 | `/purchases` | Registrar compras a proveedor |
 | `/sales` | Registrar ventas escaneando |
+| `/receipt/[token]` | Consultar e imprimir un comprobante público revocable |
 | `/reports` | Más y menos vendidos por fechas |
 | `/api/health` | Estado del sistema (debe responder `status: ok`) |
 

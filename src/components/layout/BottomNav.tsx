@@ -51,6 +51,13 @@ function NavigationIconView({ icon }: { icon: NavigationIcon }) {
           <path d="M9 9a3 3 0 0 0 6 0M8 3l-2 2m10-2 2 2" />
         </svg>
       );
+    case 'purchases':
+      return (
+        <svg {...sharedProps}>
+          <path d="M4 5h16l-1.5 15h-13L4 5Z" />
+          <path d="M12 8v7m-3.5-3.5h7" />
+        </svg>
+      );
     case 'reports':
       return (
         <svg {...sharedProps}>
@@ -69,7 +76,7 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] shadow-md md:sticky md:top-0 md:bottom-auto md:border-b md:border-t-0"
     >
       <div className="mx-auto w-full max-w-7xl px-1 sm:px-4">
-        <ul className="grid grid-cols-6 md:flex md:justify-center md:gap-2">
+        <ul className="grid grid-cols-7 md:flex md:justify-center md:gap-2">
           {navigationItems.map((item) => {
             const isActive =
               pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`));

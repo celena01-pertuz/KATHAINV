@@ -12,6 +12,10 @@ const publicPaths = new Set([
   '/auth/callback',
 ]);
 
+export function isPublicPagePath(pathname: string): boolean {
+  return publicPaths.has(pathname) || /^\/receipt\/[^/]+$/.test(pathname);
+}
+
 function redirectWithCookies(
   response: NextResponse,
   request: NextRequest,
@@ -34,9 +38,17 @@ function clearSupabaseAuthCookies(response: NextResponse, request: NextRequest):
 }
 
 export async function updateSupabaseSession(request: NextRequest): Promise<NextResponse> {
-  let response = NextResponse.next({ request });
-  if (publicPaths.has(request.nextUrl.pathname)) return response;
+  if (isPublicPagePath(request.nextUrl.pathname)) {
+    const response = NextResponse.next({ request });
+    if (request.nextUrl.pathname.startsWith('/receipt/')) {
+      response.headers.set('Cache-Control', 'no-store, max-age=0');
+      response.headers.set('X-Robots-Tag', 'noindex');
+      response.headers.set('Referrer-Policy', 'no-referrer');
+    }
+    return response;
+  }
 
+  let response = NextResponse.next({ request });
   try {
     const { url, publishableKey } = getSupabaseConfig();
     const supabase = createServerClient(url, publishableKey, {

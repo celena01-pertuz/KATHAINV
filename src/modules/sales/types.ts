@@ -13,6 +13,7 @@ export interface SaleRecord {
   status: 'active' | 'voided';
   customerId: string | null;
   customerName: string | null;
+  customerPhone: string | null;
 }
 
 export interface SaleResult {
