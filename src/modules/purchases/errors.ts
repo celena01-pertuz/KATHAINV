@@ -6,6 +6,7 @@ const purchaseMessages = new Set([
   'La fecha de compra es obligatoria.',
   'El proveedor no existe.',
   'No se encontró un producto con ese código.',
+  'El producto está desactivado. Actívalo para registrar compras.',
   'La cantidad supera el stock máximo permitido.',
 ]);
 
@@ -31,6 +32,10 @@ export function mapPurchaseDatabaseError(error: unknown): PurchaseOperationError
       typeof databaseError.message === 'string' && purchaseMessages.has(databaseError.message)
         ? databaseError.message
         : 'No se pudo validar la compra. Revisa los datos e inténtalo de nuevo.';
+    if (message === 'El producto está desactivado. Actívalo para registrar compras.') {
+      return new PurchaseOperationError(message, 409, 'PRODUCT_INACTIVE');
+    }
+
     const status = message.includes('producto con ese código') ? 404 : 400;
     return new PurchaseOperationError(message, status, 'PURCHASE_VALIDATION_ERROR');
   }

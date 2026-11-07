@@ -23,7 +23,7 @@ function formatCOP(amount: number): string {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
@@ -369,14 +369,14 @@ export function PurchaseManager() {
             className="min-h-11 w-full rounded-md border border-border bg-background px-3"
           />
           <label htmlFor="purchase-total" className="mb-2 mt-3 block font-medium">
-            Total pagado (COP)
+            Total pagado (COP, pesos enteros)
           </label>
           <input
             id="purchase-total"
             type="number"
-            inputMode="decimal"
+            inputMode="numeric"
             min="0"
-            step="0.01"
+            step="1"
             required
             value={total}
             onChange={(event) => setTotal(event.target.value)}

@@ -22,7 +22,7 @@ const input = {
   productCode: 'KAT-000001',
   supplierId: 'supplier_1',
   quantity: 3,
-  total: 25000.5,
+  total: 25000,
   date: '2026-10-31',
 };
 
@@ -41,7 +41,7 @@ describe('repositorio Supabase de compras', () => {
           product_name: 'Blusa azul',
           supplier_id: 'supplier_1',
           quantity: 3,
-          total: 25000.5,
+          total: 25000,
           date: '2026-10-31',
           new_stock: 8,
           created_at: '2026-10-31T12:00:00.000Z',
@@ -55,7 +55,7 @@ describe('repositorio Supabase de compras', () => {
       id: '14',
       productName: 'Blusa azul',
       quantity: 3,
-      total: 25000.5,
+      total: 25000,
       newStock: 8,
     });
     expect(rpcMock).toHaveBeenCalledWith('create_purchase', {
@@ -77,6 +77,20 @@ describe('repositorio Supabase de compras', () => {
     await expect(createPurchase(input)).rejects.toMatchObject({
       message: 'No se encontró un producto con ese código.',
       status: 404,
+    });
+  });
+
+  it('rechaza una compra para producto desactivado con mensaje claro y conflicto', async () => {
+    const message = 'El producto está desactivado. Actívalo para registrar compras.';
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { code: 'P0001', message },
+    });
+
+    await expect(createPurchase(input)).rejects.toMatchObject({
+      message,
+      status: 409,
+      code: 'PRODUCT_INACTIVE',
     });
   });
 
@@ -129,7 +143,7 @@ describe('repositorio Supabase de compras', () => {
             product_code: 'KAT-000001',
             supplier_id: 'supplier_1',
             quantity: 2,
-            total: '12000.50',
+            total: '12000',
             date: '2026-10-31',
             created_at: '2026-10-31T12:00:00.000Z',
             updated_at: '2026-10-31T12:00:00.000Z',
@@ -152,7 +166,7 @@ describe('repositorio Supabase de compras', () => {
         productName: 'Blusa azul',
         supplierName: 'Proveedor Uno',
         quantity: 2,
-        total: 12000.5,
+        total: 12000,
       },
     ]);
   });

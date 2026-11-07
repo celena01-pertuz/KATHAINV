@@ -25,7 +25,7 @@ const validPayload = {
   productCode: 'KAT-000001',
   supplierId: 'supplier_1',
   quantity: 2,
-  total: 12000.5,
+  total: 12000,
   date: '2026-10-31',
 };
 

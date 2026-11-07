@@ -5,7 +5,7 @@ export const purchaseRecordSchema = baseRecordSchema.extend({
   productCode: z.string().trim().min(1),
   supplierId: z.string().trim().min(1),
   quantity: z.number().int().positive().max(2147483647),
-  total: z.number().finite().min(0),
+  total: z.number().int().nonnegative(),
   date: z.string().date(),
 });
 

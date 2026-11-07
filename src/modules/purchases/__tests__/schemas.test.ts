@@ -5,12 +5,12 @@ const validPurchase = {
   productCode: 'KAT-000001',
   supplierId: 'supplier_1',
   quantity: 3,
-  total: 25000.5,
+  total: 25000,
   date: '2026-10-31',
 };
 
 describe('esquemas de compras', () => {
-  it('acepta una compra con cantidad positiva y total decimal no negativo', () => {
+  it('acepta una compra con total entero no negativo', () => {
     expect(createPurchaseSchema.safeParse(validPurchase).success).toBe(true);
     expect(createPurchaseSchema.safeParse({ ...validPurchase, total: 0 }).success).toBe(true);
   });
@@ -19,7 +19,10 @@ describe('esquemas de compras', () => {
     expect(createPurchaseSchema.safeParse({ ...validPurchase, quantity }).success).toBe(false);
   });
 
-  it('rechaza totales negativos y fechas inválidas', () => {
+  it('rechaza totales decimales o negativos y fechas inválidas', () => {
+    expect(createPurchaseSchema.safeParse({ ...validPurchase, total: 25000.5 }).success).toBe(
+      false,
+    );
     expect(createPurchaseSchema.safeParse({ ...validPurchase, total: -1 }).success).toBe(false);
     expect(createPurchaseSchema.safeParse({ ...validPurchase, date: '2026-02-31' }).success).toBe(false);
   });

@@ -16,7 +16,7 @@ CREATE TABLE public.purchases (
   product_code text NOT NULL CHECK (pg_catalog.btrim(product_code) <> ''),
   supplier_id text NOT NULL REFERENCES public.suppliers(id) ON DELETE RESTRICT,
   quantity integer NOT NULL CHECK (quantity > 0),
-  total numeric NOT NULL CHECK (total >= 0),
+  total integer NOT NULL CHECK (total >= 0),
   date date NOT NULL,
   created_at timestamptz NOT NULL DEFAULT pg_catalog.now(),
   updated_at timestamptz NOT NULL DEFAULT pg_catalog.now()
@@ -27,7 +27,7 @@ COMMENT ON TABLE public.suppliers IS
 COMMENT ON TABLE public.purchases IS
   'Compras pagadas de contado. El alta y el aumento de stock ocurren juntos.';
 COMMENT ON COLUMN public.purchases.total IS
-  'Total pagado al proveedor en pesos; puede incluir decimales.';
+  'Total pagado al proveedor en pesos colombianos enteros, sin centavos.';
 
 CREATE INDEX purchases_created_at_idx ON public.purchases (created_at DESC);
 CREATE INDEX purchases_supplier_id_idx ON public.purchases (supplier_id);
@@ -37,7 +37,7 @@ CREATE FUNCTION public.create_purchase(
   p_product_code text,
   p_supplier_id text,
   p_quantity integer,
-  p_total numeric,
+  p_total integer,
   p_date date
 )
 RETURNS TABLE (
@@ -46,7 +46,7 @@ RETURNS TABLE (
   product_name text,
   supplier_id text,
   quantity integer,
-  total numeric,
+  total integer,
   date date,
   new_stock integer,
   created_at timestamptz,
@@ -78,10 +78,10 @@ BEGIN
       MESSAGE = 'La cantidad debe ser un entero mayor que cero.';
   END IF;
 
-  IF p_total IS NULL OR p_total < 0 OR p_total::text IN ('NaN', 'Infinity', '-Infinity') THEN
+  IF p_total IS NULL OR p_total < 0 THEN
     RAISE EXCEPTION USING
       ERRCODE = 'P0001',
-      MESSAGE = 'El total debe ser un número igual o mayor que cero.';
+      MESSAGE = 'El total debe ser un entero mayor o igual a cero.';
   END IF;
 
   IF p_date IS NULL THEN
@@ -113,6 +113,12 @@ BEGIN
     RAISE EXCEPTION USING
       ERRCODE = 'P0001',
       MESSAGE = 'No se encontró un producto con ese código.';
+  END IF;
+
+  IF NOT v_product.active THEN
+    RAISE EXCEPTION USING
+      ERRCODE = 'P0001',
+      MESSAGE = 'El producto está desactivado. Actívalo para registrar compras.';
   END IF;
 
   IF v_product.stock > 2147483647 - p_quantity THEN
@@ -166,11 +172,10 @@ REVOKE ALL ON TABLE public.suppliers, public.purchases
   FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.purchases_id_seq
   FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.create_purchase(text, text, integer, numeric, date)
+REVOKE ALL ON FUNCTION public.create_purchase(text, text, integer, integer, date)
   FROM PUBLIC, anon, authenticated, service_role;
 
 GRANT SELECT, INSERT ON TABLE public.suppliers TO service_role;
 GRANT SELECT ON TABLE public.purchases TO service_role;
-GRANT USAGE, SELECT ON SEQUENCE public.purchases_id_seq TO service_role;
-GRANT EXECUTE ON FUNCTION public.create_purchase(text, text, integer, numeric, date)
+GRANT EXECUTE ON FUNCTION public.create_purchase(text, text, integer, integer, date)
   TO service_role;

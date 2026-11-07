@@ -33,7 +33,7 @@ Los datos viven en archivos JSON dentro de `data/`, uno por colección. Cada arc
 |---|---|---|
 | Producto/variante | `data/product.json` | `code` (único, interno o de fábrica), `codeType`, `variantGroupId`, `name`, `category`, `size`, `color`, `costPrice` y `salePrice` (pesos colombianos enteros), `stock`, `minStock`, `active` |
 | Proveedor | `data/supplier.json` | `name` |
-| Compra | `data/purchase.json` | `productCode`, `supplierId`, `quantity` (entero), `total` (decimal), `date` |
+| Compra | `data/purchase.json` | `productCode`, `supplierId`, `quantity` (entero), `total` (pesos colombianos enteros, mayor o igual a cero), `date` |
 | Venta | `data/sale.json` | `productCode`, `quantity` (entero), `total` (decimal), `date` |
 
 Los esquemas Zod van en `data/_schema/` y se registran en `data/_schema/registry.ts`.
