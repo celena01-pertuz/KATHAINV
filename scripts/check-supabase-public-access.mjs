@@ -61,6 +61,8 @@ for (const table of [
   'sale_items',
   'sale_payments',
   'sale_receipt_tokens',
+  'suppliers',
+  'purchases',
 ]) {
   let response;
   try {
@@ -112,6 +114,16 @@ const rpcChecks = [
       p_payment_method: 'efectivo',
       p_request_key: `public-access-check-${Date.now()}`,
       p_created_by: 'x@x.invalid',
+    },
+  },
+  {
+    name: 'create_purchase',
+    payload: {
+      p_product_code: 'PUBLIC-ACCESS-CHECK',
+      p_supplier_id: 'public-access-check',
+      p_quantity: 1,
+      p_total: 0,
+      p_date: new Date().toISOString().slice(0, 10),
     },
   },
 ];
