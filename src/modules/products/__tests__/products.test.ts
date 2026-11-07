@@ -123,22 +123,42 @@ describe('esquema de producto', () => {
     expect(productCreateSchema.safeParse({ ...validInput, salePrice: 10.5 }).success).toBe(false);
   });
 
-  it('requiere talla para ropa y calzado', () => {
-    expect(productCreateSchema.safeParse({ ...validInput, size: '' }).success).toBe(false);
-    expect(productCreateSchema.safeParse({ ...validInput, color: '' }).success).toBe(false);
-    expect(
-      productCreateSchema.safeParse({ ...validInput, category: 'calzado', size: '' }).success,
-    ).toBe(false);
-  });
+  it.each(['name', 'size', 'color'] as const)(
+    'rechaza %s vacío o con solo espacios al crear',
+    (field) => {
+      for (const value of ['', '   ']) {
+        expect(productCreateSchema.safeParse({ ...validInput, [field]: value }).success).toBe(
+          false,
+        );
+      }
+    },
+  );
 
-  it('acepta variantes sin talla en categorías que no la usan', () => {
-    expect(
-      productCreateSchema.safeParse({
+  it.each(['name', 'size', 'color'] as const)(
+    'rechaza %s vacío o con solo espacios al editar',
+    (field) => {
+      const record = {
+        id: 'product_1',
+        createdAt: '2026-10-28T00:00:00.000Z',
+        updatedAt: '2026-10-28T00:00:00.000Z',
+        code: 'KAT-000001',
+        codeType: 'internal',
+        variantGroupId: 'variant_1',
         ...validInput,
-        category: 'bolso',
-        size: '',
-      }).success,
-    ).toBe(true);
+      };
+
+      for (const value of ['', '   ']) {
+        expect(productRecordSchema.safeParse({ ...record, [field]: value }).success).toBe(false);
+      }
+    },
+  );
+
+  it('acepta talla Única para bolsos y accesorios', () => {
+    for (const category of ['bolso', 'accesorio'] as const) {
+      expect(
+        productCreateSchema.safeParse({ ...validInput, category, size: 'Única' }).success,
+      ).toBe(true);
+    }
   });
 
   it('requiere códigos, precios de venta y existencias enteras no negativas en el registro', () => {

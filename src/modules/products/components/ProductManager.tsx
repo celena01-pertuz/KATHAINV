@@ -342,6 +342,9 @@ function ProductForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const editing = Boolean(product.id);
+  const [category, setCategory] = useState(product.category ?? 'ropa');
+  const offersOneSize = category === 'bolso' || category === 'accesorio';
+
   return (
     <form
       onSubmit={onSubmit}
@@ -379,6 +382,9 @@ function ProductForm({
           name="category"
           required
           defaultValue={product.category ?? 'ropa'}
+          onChange={(event) =>
+            setCategory(event.target.value as (typeof categories)[number])
+          }
           className="min-h-11 w-full rounded-md border border-border bg-background px-3"
         >
           {categories.map((category) => (
@@ -392,15 +398,21 @@ function ProductForm({
         <span className="mb-1 block text-sm">Talla</span>
         <input
           name="size"
+          list="product-size-options"
+          required
           defaultValue={product.size ?? ''}
           className="min-h-11 w-full rounded-md border border-border bg-background px-3"
-          placeholder="Ej. S, M, 38"
+          placeholder="Ej. S, M, 38 o Única"
         />
+        <datalist id="product-size-options">
+          {offersOneSize && <option value="Única" />}
+        </datalist>
       </label>
       <label>
         <span className="mb-1 block text-sm">Color</span>
         <input
           name="color"
+          required
           defaultValue={product.color ?? ''}
           className="min-h-11 w-full rounded-md border border-border bg-background px-3"
         />

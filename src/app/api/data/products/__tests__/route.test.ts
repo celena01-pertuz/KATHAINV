@@ -78,6 +78,51 @@ describe('/api/data/products autorización', () => {
     expect(removeOrDeactivateProductMock).not.toHaveBeenCalled();
   });
 
+  it('rechaza nombres, tallas o colores en blanco al crear y editar', async () => {
+    getServerAccessStatusMock.mockResolvedValue('authorized');
+    const createPayload = {
+      name: 'Blusa',
+      category: 'ropa',
+      size: 'M',
+      color: 'Negro',
+      costPrice: 30000,
+      salePrice: 55000,
+      stock: 5,
+      minStock: 1,
+      active: true,
+    };
+    const updatePayload = {
+      id: 'product_1',
+      createdAt: '2026-10-28T00:00:00.000Z',
+      updatedAt: '2026-10-28T00:00:00.000Z',
+      code: 'KAT-000001',
+      codeType: 'internal',
+      variantGroupId: 'variant_1',
+      ...createPayload,
+    };
+
+    for (const field of ['name', 'size', 'color'] as const) {
+      const createResponse = await POST(
+        request('http://localhost/api/data/products', 'POST', {
+          ...createPayload,
+          [field]: '   ',
+        }),
+      );
+      const updateResponse = await PUT(
+        request('http://localhost/api/data/products', 'PUT', {
+          ...updatePayload,
+          [field]: '   ',
+        }),
+      );
+
+      expect(createResponse.status).toBe(400);
+      expect(updateResponse.status).toBe(400);
+    }
+
+    expect(createProductMock).not.toHaveBeenCalled();
+    expect(updateProductMock).not.toHaveBeenCalled();
+  });
+
   it('responde 403 si la cuenta no está permitida', async () => {
     getServerAccessStatusMock.mockResolvedValue('forbidden');
     const response = await GET(request('http://localhost/api/data/products'));

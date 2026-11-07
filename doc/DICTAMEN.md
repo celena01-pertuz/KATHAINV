@@ -155,7 +155,7 @@ Se compara el plan con el código y las migraciones versionadas. El código que 
 - Estado actual: nombre se valida como no vacío; talla y color permiten cadenas vacías en la validación y en la base. El formulario permite talla vacía en variantes que no la usan.
 - Veredicto: **ENRIQUECER**
 - Razón: la regla acordada exige los tres campos siempre y define **“Única”** como opción de talla para bolsos y accesorios.
-- Acción concreta: la consulta de solo lectura no devolvió filas; no se encontraron productos actuales con nombre, talla o color nulos, vacíos o solo espacios. Ya se puede preparar la propuesta de migración con `CHECK`; no se ha creado ni ejecutado una migración. Después, aplicar la regla también en Zod y el formulario.
+- Acción concreta: la consulta de solo lectura no devolvió filas; no se encontraron productos actuales con nombre, talla o color nulos, vacíos o solo espacios. Se preparó localmente `20261107010000_products_required_attributes.sql`, con `CHECK` en la base; Zod y el formulario también se actualizaron. La migración no se ha ejecutado. El smoke test transaccional está en `supabase/tests/products_required_attributes_smoke_test.sql`.
 - Prompt donde se trata: P02/P04, decisión acordada; consulta previa completada sin filas.
 
 ### RN-15 — No borrar productos; desactivar solo con stock cero
@@ -211,7 +211,7 @@ Reportes/métricas (`/reports`) está todavía en construcción; es una ampliaci
 1. **RN-15:** no borrar productos; desactivar solamente con stock cero. Si hay existencias, el servidor y la base deben rechazar con `PRODUCTO_CON_EXISTENCIAS` (409); el campo activo no se edita libremente.
 2. **RN-02:** la clave es nombre normalizado + talla normalizada + color normalizado; los códigos siguen siendo únicos por separado. La estudiante informa que la consulta de solo lectura no encontró combinaciones repetidas. La regla aún no está implementada.
 3. **Dinero de compras:** `purchases.total` es entero mayor o igual a cero en todas las capas. La migración está aplicada y verificada en Supabase; el smoke test pasó.
-4. **RN-14:** nombre, talla y color son obligatorios siempre y no pueden quedar vacíos; aplicar la regla en la base con `CHECK`, en Zod y en el formulario. Para bolsos y accesorios sin talla, el formulario ofrece la opción **“Única”**. La consulta de solo lectura indicada al final del documento se ejecutó y devolvió cero filas. Se puede preparar una propuesta de migración; no se ha creado ni ejecutado SQL.
+4. **RN-14:** nombre, talla y color son obligatorios siempre y no pueden quedar vacíos; la implementación local agrega `CHECK` en una migración nueva, validación Zod en creación/edición y campos obligatorios en el formulario. Para bolsos y accesorios sin talla, el formulario ofrece la opción **“Única”**. La consulta de solo lectura indicada al final del documento se ejecutó y devolvió cero filas. La migración y el smoke test están preparados localmente, pero no se ha ejecutado SQL.
 5. **Alerta de agotado (CU-06):** al registrar una venta, la respuesta debe indicar qué referencias quedaron con stock en cero y la pantalla debe avisarlo. Se hará como parte de la tarea de ventas; no se implementa ahora.
 6. **Descuentos:** se agregarán, pero queda **pendiente de definir regla** con el profesor: porcentaje o valor fijo, por producto o por venta, presentación en el comprobante e impacto en reportes y saldos. No implementar ni modificar `create_sale`, comprobantes, fiados ni reportes hasta acordar la regla.
 
