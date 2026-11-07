@@ -16,7 +16,7 @@ Se compara el plan con el código y las migraciones versionadas. El código que 
 
 - Estado actual: `/purchases` y `src/modules/purchases`; `create_purchase` valida, bloquea el producto, escribe la compra y suma existencias en una operación atómica. Hay proveedores y pruebas de esquema/repositorio.
 - Veredicto: **CONSERVAR**
-- Razón: persiste en Supabase y cumple la entrada a proveedor con aumento atómico del stock. La estudiante confirmó que `public.purchases` aún no existe en Supabase; se cambió localmente `total` a entero no negativo en la migración, esquema Zod y formulario.
+- Razón: persiste en Supabase y cumple la entrada a proveedor con aumento atómico del stock. La migración con `total` entero no negativo está aplicada y verificada en Supabase; la estudiante confirmó que el smoke test pasó.
 - Acción concreta: conservar el flujo y la migración corregida; la estudiante ejecutará SQL manualmente cuando la revise.
 - Prompt donde se trata: P04, P05 y P08; no duplicar el flujo existente.
 
@@ -33,8 +33,8 @@ Se compara el plan con el código y las migraciones versionadas. El código que 
 - Estado actual: `/sales`, carrito y cobro de contado, parcial o fiado; `create_sale` valida y bloquea existencias, graba precio/costo por ítem y descuenta stock atómicamente. La interfaz confirma el registro.
 - Veredicto: **ENRIQUECER**
 - Razón: la venta transaccional y el precio congelado ya existen y se conservan. No se encontró un campo ni una operación de descuento; tampoco una alerta explícita cuando la venta deja stock en cero. La función devuelve número/total, no los códigos que se agotaron.
-- Acción concreta: conservar RPC, validaciones, fiados e historial. Acordar si y cómo se desea modelar descuentos y completar la alerta de agotado antes de extender ventas.
-- Prompt donde se trata: P02, P04, P05 y P08, después de resolver el conflicto de descuentos.
+- Acción concreta: conservar RPC, validaciones, fiados e historial. No implementar descuentos hasta definir su regla con el profesor. La alerta de agotado se implementará con la tarea de ventas.
+- Prompt donde se trata: P02, P04, P05 y P08, respetando la regla de descuentos pendiente y la tarea de alerta acordada.
 
 ## F5 — Login
 
@@ -152,11 +152,11 @@ Se compara el plan con el código y las migraciones versionadas. El código que 
 
 ### RN-14 — Nombre, talla y color no vacíos
 
-- Estado actual: nombre es obligatorio; talla/color pueden no aplicar en ciertas variantes y las columnas de base permiten cadenas vacías. Hay pruebas explícitas de talla vacía para categorías que no la usan.
+- Estado actual: nombre se valida como no vacío; talla y color permiten cadenas vacías en la validación y en la base. El formulario permite talla vacía en variantes que no la usan.
 - Veredicto: **ENRIQUECER**
-- Razón: la regla textual del plan es más estricta que el modelo actual de productos y puede invalidar variantes que el formulario/pruebas consideran válidas.
-- Acción concreta: no imponerla automáticamente; decidir si talla vacía es válida para bolso/accesorio y si color siempre debe ser obligatorio.
-- Prompt donde se trata: P02/P04, pendiente de decisión.
+- Razón: la regla acordada exige los tres campos siempre y define **“Única”** como opción de talla para bolsos y accesorios.
+- Acción concreta: la consulta de solo lectura no devolvió filas; no se encontraron productos actuales con nombre, talla o color nulos, vacíos o solo espacios. Ya se puede preparar la propuesta de migración con `CHECK`; no se ha creado ni ejecutado una migración. Después, aplicar la regla también en Zod y el formulario.
+- Prompt donde se trata: P02/P04, decisión acordada; consulta previa completada sin filas.
 
 ### RN-15 — No borrar productos; desactivar solo con stock cero
 
@@ -188,10 +188,10 @@ Reportes/métricas (`/reports`) está todavía en construcción; es una ampliaci
 | F1 Productos | ENRIQUECER | P04/P05/P07, sujeto a decisiones RN-02/RN-15 |
 | F2 Compras/entradas | CONSERVAR | P04/P05/P08: verificar y reutilizar |
 | F3 Consulta por escaneo | CONSERVAR | P06/P08: verificar y reutilizar |
-| F4 Ventas | ENRIQUECER | P02/P04/P05/P08: acordar descuento y alerta |
+| F4 Ventas | ENRIQUECER | P02/P04/P05/P08: regla de descuento pendiente; alerta acordada para la tarea de ventas |
 | F5 Login | CONSERVAR | P03 solo adaptación compatible |
 | RN-01 | CONSERVAR | P04/P05 |
-| RN-02 | ENRIQUECER | P01/P04, sujeto a decisión |
+| RN-02 | ENRIQUECER | P01/P04, decisión acordada |
 | RN-03 | CONSERVAR | P06/P08 |
 | RN-04 | CONSERVAR | P06/P08 |
 | RN-05 | CONSERVAR | P01/P04 |
@@ -203,19 +203,33 @@ Reportes/métricas (`/reports`) está todavía en construcción; es una ampliaci
 | RN-11 | CONSERVAR | P04/P05; descuentos pendientes |
 | RN-12 | CONSERVAR | P04/P05 |
 | RN-13 | CONSERVAR | P04/P06 |
-| RN-14 | ENRIQUECER | P02/P04, sujeto a decisión |
-| RN-15 | CAMBIAR | P04/P05/P07, sujeto a confirmación |
+| RN-14 | ENRIQUECER | P02/P04, decisión acordada; consulta de datos previa a migración |
+| RN-15 | CAMBIAR | P04/P05/P07, decisión acordada |
 
 ## Decisiones acordadas después de P00
 
 1. **RN-15:** no borrar productos; desactivar solamente con stock cero. Si hay existencias, el servidor y la base deben rechazar con `PRODUCTO_CON_EXISTENCIAS` (409); el campo activo no se edita libremente.
 2. **RN-02:** la clave es nombre normalizado + talla normalizada + color normalizado; los códigos siguen siendo únicos por separado. La estudiante informa que la consulta de solo lectura no encontró combinaciones repetidas. La regla aún no está implementada.
-3. **Dinero de compras:** `purchases.total` es entero mayor o igual a cero en todas las capas. La tabla remota no existe según el error `42P01`; la migración existente se corrigió localmente y no se ejecutó.
-4. **RN-14:** nombre, talla y color obligatorios siempre; la regla aún no está implementada en la validación/base.
-5. **Alerta de agotado:** añadir alerta cuando una venta deje stock en cero.
+3. **Dinero de compras:** `purchases.total` es entero mayor o igual a cero en todas las capas. La migración está aplicada y verificada en Supabase; el smoke test pasó.
+4. **RN-14:** nombre, talla y color son obligatorios siempre y no pueden quedar vacíos; aplicar la regla en la base con `CHECK`, en Zod y en el formulario. Para bolsos y accesorios sin talla, el formulario ofrece la opción **“Única”**. La consulta de solo lectura indicada al final del documento se ejecutó y devolvió cero filas. Se puede preparar una propuesta de migración; no se ha creado ni ejecutado SQL.
+5. **Alerta de agotado (CU-06):** al registrar una venta, la respuesta debe indicar qué referencias quedaron con stock en cero y la pantalla debe avisarlo. Se hará como parte de la tarea de ventas; no se implementa ahora.
+6. **Descuentos:** se agregarán, pero queda **pendiente de definir regla** con el profesor: porcentaje o valor fijo, por producto o por venta, presentación en el comprobante e impacto en reportes y saldos. No implementar ni modificar `create_sale`, comprobantes, fiados ni reportes hasta acordar la regla.
 
 ## Conflictos aún pendientes con la estudiante antes de P01
 
-1. **Descuentos en ventas:** se acordó agregarlos, pero falta definir regla y cálculo antes de modificar el flujo o esquema; actualmente no están modelados.
+1. **Descuentos en ventas:** falta definir la regla con el profesor. La decisión de agregarlos está tomada, pero no se deben modelar ni implementar hasta acordar su cálculo y efectos.
 
 Las decisiones anteriores no autorizan aplicar SQL. Los módulos de clientes, compras, proveedores, comprobantes, fiados y etiquetas se conservan independientemente del plan.
+
+### Consulta previa de solo lectura para RN-14
+
+Consulta ejecutada manualmente por la estudiante en el SQL Editor; devolvió cero filas. No modifica datos:
+
+```sql
+SELECT id, code, name, size, color
+FROM public.products
+WHERE name IS NULL OR pg_catalog.regexp_replace(name, '[[:space:]]+', '', 'g') = ''
+   OR size IS NULL OR pg_catalog.regexp_replace(size, '[[:space:]]+', '', 'g') = ''
+   OR color IS NULL OR pg_catalog.regexp_replace(color, '[[:space:]]+', '', 'g') = ''
+ORDER BY code, id;
+```

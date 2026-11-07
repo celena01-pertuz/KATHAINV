@@ -25,8 +25,16 @@ Los prompts P01–P09 permanecen pendientes. P00 queda completado con la auditor
 - Verificaciones, cada una ejecutada individualmente con `npm.cmd` y el servidor apagado: build ✅; test (40 archivos, 144 pruebas) ✅; type-check ✅; lint ✅ (con aviso de obsolescencia de `next lint`).
 - P00 se marca completado; no se inicia P01 hasta resolver los conflictos anotados en `doc/DICTAMEN.md`.
 
-#### Resolución acordada del total de compras
+#### Resolución acordada del total de compras (registro histórico de P00)
 
-- La estudiante informó que Supabase respondió `42P01` al consultar `public.purchases`; no hay tabla aplicada ni filas a convertir.
-- Por autorización explícita, se corrigió localmente la migración existente para `integer >= 0`, junto con Zod, formulario, pruebas y contexto. La migración no se ejecutó y no se hizo commit.
-- `scripts/check-supabase-public-access.mjs` conserva diez comprobaciones en el código (seis tablas y cuatro RPC). No se ejecutó porque lee `.env.local` y contacta Supabase, operaciones prohibidas por las instrucciones iniciales.
+- En ese momento, la estudiante informó que Supabase respondió `42P01` al consultar `public.purchases`; no había tabla aplicada ni filas a convertir.
+- Por autorización explícita, se corrigió localmente la migración existente para `integer >= 0`, junto con Zod, formulario, pruebas y contexto. En ese punto, la migración no se había ejecutado.
+- En ese punto, `scripts/check-supabase-public-access.mjs` conservaba diez comprobaciones en el código (seis tablas y cuatro RPC) y no se había ejecutado.
+
+#### Decisiones y verificación posteriores
+
+- RN-14: nombre, talla y color son obligatorios y no vacíos en la base (`CHECK`), Zod y formulario. Para bolsos y accesorios, el formulario ofrece talla **“Única”**. La estudiante ejecutó la consulta de solo lectura incluida en `DICTAMEN.md`; devolvió cero filas. Ya se puede preparar una propuesta de migración, pero no se creó ni ejecutó SQL.
+- Alerta de agotado (CU-06): al registrar una venta, la respuesta identificará las referencias que quedaron en cero y la pantalla lo avisará. Se implementará con la tarea de ventas, no ahora.
+- Descuentos: se agregarán; regla pendiente de definir con el profesor. No modificar `create_sale`, comprobantes, fiados ni reportes antes de acordarla.
+- La estudiante confirmó que la migración de compras ya está aplicada y verificada en Supabase, y que pasó el smoke test. El script de acceso público se amplió para revisar `suppliers`, `purchases` y `create_purchase`; su ejecución dio 13 comprobaciones OK y ninguna fallida.
+- El último type-check, lint, test y build finalizaron correctamente; Vitest reportó 145 pruebas en 40 archivos.
