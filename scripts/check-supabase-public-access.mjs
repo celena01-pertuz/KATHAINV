@@ -126,6 +126,10 @@ const rpcChecks = [
       p_date: new Date().toISOString().slice(0, 10),
     },
   },
+  {
+    name: 'get_product_sales_report',
+    payload: { p_from: '2000-01-01', p_to: '2000-01-01' },
+  },
 ];
 
 for (const { name, payload } of rpcChecks) {
