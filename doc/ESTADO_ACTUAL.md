@@ -225,3 +225,9 @@ d772ef3 feat: agregar inicio de sesion
 82c9258 Inicializar proyecto KATHAINV
 685f3eb Initial commit from workspace
 ```
+
+## 17. Actualización posterior de avance · 2026-11-07
+
+La sección 7 anterior conserva la radiografía histórica de P00. Según la actualización de la estudiante, desde esa auditoría quedaron completados los reportes, RN-14, la paleta beige y rosa (modo oscuro neutro con rosa y blanco) y la vista de ventas en dos columnas con alta rápida de clientes. La estudiante confirmó que `20261107010000_products_required_attributes.sql` (RN-14) está aplicada y verificada en Supabase: existen los tres `CHECK` y pasó el smoke test. También confirmó que `20261107120000_p09_f6_product_sales_report.sql` está aplicada y su smoke test pasó. Son verificaciones reportadas por la estudiante, no una conexión o comprobación independiente desde esta auditoría.
+
+El estado pendiente vigente y las decisiones de diseño aún no implementadas se registran en `doc/ESTADO_EJECUCION.md`; incluye la alerta de agotado, las vistas de productos y clientes en dos columnas, ajustes al inicio y menú, la revisión contra el plan, fiados, anulación de ventas, Fase 4 y la regla de descuentos por acordar con el profesor.

@@ -137,3 +137,15 @@ En Vercel los archivos del proyecto son de solo lectura, así que escribir en `d
 | 4 | Persistencia real en producción, rendimiento, documentación y versión 1.0 |
 
 No se pasa a la siguiente fase hasta cumplir todos los criterios de la actual. La guía detallada del profe está en `guia-construccion-por-fases.md`.
+
+## 11. Avance y decisiones visuales vigentes
+
+La paleta acordada es beige y rosa; en modo oscuro se usa una base neutra con rosa y blanco. La pantalla de ventas usa dos columnas y permite el alta rápida de clientes.
+
+**Decisiones de interfaz pendientes; no implementarlas sin una solicitud:**
+
+- Menú: Inicio, Ventas, Productos y **Más**, con Clientes, Escáner y Proveedores dentro de Más. “Compras” se renombra “Proveedores” solo en textos visibles; conservar la ruta `/purchases`.
+- Inicio: saludo según la hora de Colombia; botones grandes para Nueva venta, Escanear y Registrar producto; reporte del día con selector Hoy / Ayer / Elegir fecha y enlace “Ver reporte completo”. Reportes no debe aparecer en el menú.
+- Unificar encabezados y espacios, dejar un solo botón principal por pantalla y mostrar mensajes amables cuando no haya datos.
+
+El seguimiento de elementos completados y pendientes se mantiene en `doc/ESTADO_EJECUCION.md`; consúltalo antes de iniciar una tarea para no duplicar trabajo. Siguen pendientes la alerta de agotado, las vistas de productos y clientes en dos columnas, el saludo y el reporte de inicio, la revisión contra el plan, los fiados, la anulación de ventas, la Fase 4 y el acuerdo con el profesor sobre descuentos.
