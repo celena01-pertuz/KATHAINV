@@ -39,8 +39,8 @@ async function authorizationError() {
       return apiError('No tienes permiso para acceder a este recurso.', 'FORBIDDEN', 403);
     }
     return null;
-  } catch (error) {
-    console.error('No se pudo validar el acceso a la API de datos.', error);
+  } catch {
+    console.error('No se pudo validar el acceso a la API de datos.');
     return apiError(
       'No fue posible verificar el acceso. Inténtalo más tarde.',
       'AUTH_UNAVAILABLE',

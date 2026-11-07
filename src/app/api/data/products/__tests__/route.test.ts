@@ -50,6 +50,17 @@ describe('/api/data/products autorización', () => {
     expect(listProductsMock).not.toHaveBeenCalled();
   });
 
+  it('responde 503 si la verificación de Supabase falla realmente', async () => {
+    getServerAccessStatusMock.mockRejectedValue(new Error('Supabase unavailable'));
+
+    const response = await GET(request('http://localhost/api/data/products'));
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.code).toBe('AUTH_UNAVAILABLE');
+    expect(listProductsMock).not.toHaveBeenCalled();
+  });
+
   it('impide crear productos sin sesión con 401', async () => {
     const response = await POST(request('http://localhost/api/data/products', 'POST', {}));
     expect(response.status).toBe(401);

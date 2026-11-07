@@ -1,5 +1,6 @@
 import { canAccessInventory } from './access-policy';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 
 export type ServerAccessStatus = 'authorized' | 'unauthenticated' | 'forbidden';
 
@@ -8,10 +9,40 @@ export interface ServerAccessContext {
   email: string | null;
 }
 
+function isSupabaseAuthCookie(name: string): boolean {
+  return /^sb-.*-auth-token$/.test(name);
+}
+
+async function clearSupabaseAuthCookies(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.getAll().filter(({ name }) => isSupabaseAuthCookie(name)).forEach(({ name }) => {
+    try {
+      cookieStore.delete(name);
+    } catch {
+      // Server components cannot mutate cookies; middleware clears them on page requests.
+    }
+  });
+}
+
 export function isUnauthenticatedError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  if (error.name === 'AuthSessionMissingError') return true;
-  return 'status' in error && error.status === 401;
+  if (!error || typeof error !== 'object') return false;
+
+  const authError = error as { code?: unknown; message?: unknown; name?: unknown; status?: unknown };
+  const code = typeof authError.code === 'string' ? authError.code.toLowerCase() : '';
+  const name = typeof authError.name === 'string' ? authError.name.toLowerCase() : '';
+  const message = typeof authError.message === 'string' ? authError.message.toLowerCase() : '';
+
+  return (
+    authError.status === 401 ||
+    name === 'authsessionmissingerror' ||
+    code === 'refresh_token_not_found' ||
+    code === 'session_not_found' ||
+    code === 'session_missing' ||
+    message.includes('invalid refresh token') ||
+    message.includes('refresh_token_not_found') ||
+    message.includes('session not found') ||
+    message.includes('session missing')
+  );
 }
 
 export async function getServerAccessContext(): Promise<ServerAccessContext> {
@@ -22,11 +53,17 @@ export async function getServerAccessContext(): Promise<ServerAccessContext> {
   } = await supabase.auth.getUser();
 
   if (error) {
-    if (isUnauthenticatedError(error)) return { status: 'unauthenticated', email: null };
+    if (isUnauthenticatedError(error)) {
+      await clearSupabaseAuthCookies();
+      return { status: 'unauthenticated', email: null };
+    }
     throw error;
   }
 
-  if (!user) return { status: 'unauthenticated', email: null };
+  if (!user) {
+    await clearSupabaseAuthCookies();
+    return { status: 'unauthenticated', email: null };
+  }
   return {
     status: canAccessInventory(user) ? 'authorized' : 'forbidden',
     email: user.email ?? null,

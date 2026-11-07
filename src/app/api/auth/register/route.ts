@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Si el correo está autorizado, recibirás un mensaje para confirmar tu cuenta.',
     });
-  } catch (error) {
-    console.error('No se pudo completar el registro.', error);
+  } catch {
+    console.error('No se pudo completar el registro.');
     return errorResponse('No fue posible completar el registro. Inténtalo más tarde.', 503);
   }
 }

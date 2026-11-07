@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
       });
     }
     return response;
-  } catch (error) {
-    console.error('No se pudo completar la confirmación del correo.', error);
+  } catch {
+    console.error('No se pudo completar la confirmación del correo.');
     return NextResponse.redirect(new URL('/login', request.url));
   }
 }

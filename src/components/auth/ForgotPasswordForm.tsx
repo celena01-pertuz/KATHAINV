@@ -42,8 +42,8 @@ export function ForgotPasswordForm() {
           code: error.code,
         });
       }
-    } catch (error) {
-      console.error('No se pudo completar la solicitud de recuperación de contraseña.', error);
+    } catch {
+      console.error('No se pudo completar la solicitud de recuperación de contraseña.');
     } finally {
       setMessage(genericMessage);
       setIsLoading(false);

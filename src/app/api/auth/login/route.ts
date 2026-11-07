@@ -59,8 +59,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('No se pudo completar el inicio de sesión.', error);
+  } catch {
+    console.error('No se pudo completar el inicio de sesión.');
     return errorResponse('No fue posible iniciar sesión. Inténtalo más tarde.', 503);
   }
 }

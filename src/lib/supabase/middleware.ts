@@ -22,27 +22,38 @@ function redirectWithCookies(
   return redirectResponse;
 }
 
+function clearSupabaseAuthCookies(response: NextResponse, request: NextRequest): void {
+  const names = new Set([
+    ...request.cookies.getAll().map(({ name }) => name),
+    ...response.cookies.getAll().map(({ name }) => name),
+  ]);
+
+  names.forEach((name) => {
+    if (/^sb-.*-auth-token$/.test(name)) response.cookies.delete(name);
+  });
+}
+
 export async function updateSupabaseSession(request: NextRequest): Promise<NextResponse> {
   let response = NextResponse.next({ request });
-  const { url, publishableKey } = getSupabaseConfig();
-  const supabase = createServerClient(url, publishableKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
-        );
-      },
-    },
-  });
-
   if (publicPaths.has(request.nextUrl.pathname)) return response;
 
   try {
+    const { url, publishableKey } = getSupabaseConfig();
+    const supabase = createServerClient(url, publishableKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
+          );
+        },
+      },
+    });
+
     const {
       data: { user },
       error,
@@ -50,9 +61,7 @@ export async function updateSupabaseSession(request: NextRequest): Promise<NextR
 
     if (error && !isUnauthenticatedError(error)) throw error;
     if (!user) {
-      if (request.nextUrl.pathname === '/products' || request.nextUrl.pathname === '/scan') {
-        return new NextResponse('Inicia sesión para consultar productos.', { status: 401 });
-      }
+      clearSupabaseAuthCookies(response, request);
       return redirectWithCookies(response, request, '/login');
     }
     if (!canAccessInventory(user)) {
@@ -63,8 +72,8 @@ export async function updateSupabaseSession(request: NextRequest): Promise<NextR
     }
 
     return response;
-  } catch (error) {
-    console.error('No se pudo validar el acceso a la página.', error);
+  } catch {
+    console.error('No se pudo validar el acceso a la página.');
     return new NextResponse('No fue posible verificar el acceso. Inténtalo más tarde.', {
       status: 503,
     });
