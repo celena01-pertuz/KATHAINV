@@ -1,17 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import type { CustomerRecord } from '@/modules/customers/types';
+import Link from 'next/link';
+import {
+  CUSTOMER_DATA_NOTICE,
+  CUSTOMER_DATA_NOTICE_VERSION,
+} from '@/modules/customers/consent-notice';
+import { normalizeColombianPhone } from '@/modules/customers/phone-utils';
+import type { CustomerRecord, CustomerSaveResult } from '@/modules/customers/types';
 import { normalizeProductCode } from '@/modules/products/code-utils';
 import type { ProductRecord } from '@/modules/products/types';
 import { buildWhatsAppUrl } from '@/modules/receipts/whatsapp';
 import { createSaleRequestKey } from '../request-key';
-import type {
-  SalePaymentMethod,
-  SalePaymentType,
-  SaleRecord,
-  SaleResult,
-} from '../types';
+import type { SalePaymentMethod, SalePaymentType, SaleRecord, SaleResult } from '../types';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -61,6 +62,12 @@ export function SalesManager() {
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [customerFormError, setCustomerFormError] = useState('');
+  const [customerFormNotice, setCustomerFormNotice] = useState('');
   const [paymentType, setPaymentType] = useState<SalePaymentType>('cash');
   const [initialPayment, setInitialPayment] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod | ''>('');
@@ -80,6 +87,9 @@ export function SalesManager() {
     id: number;
     saleNumber: string;
     customerPhone: string | null;
+    customerName: string | null;
+    paymentType: SalePaymentType;
+    total: number;
   } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -88,10 +98,9 @@ export function SalesManager() {
   const cameraStartingRef = useRef(false);
   const lastCameraCodeRef = useRef({ code: '', timestamp: 0 });
 
-  const total = cart.reduce(
-    (sum, item) => sum + item.product.salePrice * item.quantity,
-    0,
-  );
+  const total = cart.reduce((sum, item) => sum + item.product.salePrice * item.quantity, 0);
+  const summaryTotal = confirmedSale?.total ?? total;
+  const summaryPaymentType = confirmedSale?.paymentType ?? paymentType;
   const paidAmount = paymentType === 'cash' ? total : Number(initialPayment);
   const customerRequired = paymentType !== 'cash';
   const canSell =
@@ -153,10 +162,9 @@ export function SalesManager() {
   }, []);
 
   useEffect(() => {
-    if (!customerRequired) {
+    const query = customerSearch.trim();
+    if (!query) {
       setCustomers([]);
-      setCustomerSearch('');
-      setSelectedCustomer(null);
       return;
     }
 
@@ -164,10 +172,10 @@ export function SalesManager() {
     const timer = window.setTimeout(() => {
       async function searchCustomers() {
         try {
-          const response = await fetch(
-            `/api/data/customers?q=${encodeURIComponent(customerSearch.trim())}`,
-            { cache: 'no-store', signal: controller.signal },
-          );
+          const response = await fetch(`/api/data/customers?q=${encodeURIComponent(query)}`, {
+            cache: 'no-store',
+            signal: controller.signal,
+          });
           if (!response.ok) throw new Error(await responseError(response));
           const body = (await response.json()) as ApiResponse<{ data: CustomerRecord[] }>;
           setCustomers((body.data?.data ?? []).filter((customer) => customer.active));
@@ -189,7 +197,7 @@ export function SalesManager() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [customerRequired, customerSearch]);
+  }, [customerSearch]);
 
   const addProduct = useCallback((product: ProductRecord) => {
     setError('');
@@ -205,9 +213,7 @@ export function SalesManager() {
       const existing = items.find((item) => item.product.id === product.id);
       if (existing) {
         return items.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item,
+          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item,
         );
       }
       return [...items, { product, quantity: 1 }];
@@ -243,9 +249,7 @@ export function SalesManager() {
         addProduct(body.data);
       } catch (lookupError) {
         setError(
-          lookupError instanceof Error
-            ? lookupError.message
-            : 'No se pudo consultar el producto.',
+          lookupError instanceof Error ? lookupError.message : 'No se pudo consultar el producto.',
         );
       } finally {
         setSearchingProduct(false);
@@ -337,9 +341,7 @@ export function SalesManager() {
       );
     } catch (searchError) {
       setError(
-        searchError instanceof Error
-          ? searchError.message
-          : 'No se pudieron buscar productos.',
+        searchError instanceof Error ? searchError.message : 'No se pudieron buscar productos.',
       );
     } finally {
       setSearchingProduct(false);
@@ -369,11 +371,7 @@ export function SalesManager() {
           })),
           paymentType,
           initialPayment:
-            paymentType === 'cash'
-              ? null
-              : paymentType === 'credit'
-                ? 0
-                : Number(initialPayment),
+            paymentType === 'cash' ? null : paymentType === 'credit' ? 0 : Number(initialPayment),
           paymentMethod: paymentMethod || null,
           requestKey,
         }),
@@ -387,6 +385,9 @@ export function SalesManager() {
         id: body.data.saleId,
         saleNumber: body.data.saleNumber,
         customerPhone: selectedCustomer?.phone ?? null,
+        customerName: selectedCustomer?.name ?? null,
+        paymentType,
+        total: body.data.total,
       });
       setNotice(`Venta ${body.data.saleNumber} registrada correctamente.`);
       setCart([]);
@@ -552,245 +553,215 @@ export function SalesManager() {
     );
   }
 
+  function startNewSale() {
+    setCart([]);
+    setCode('');
+    setProductSearch('');
+    setProductResults([]);
+    setCustomerSearch('');
+    setCustomers([]);
+    setSelectedCustomer(null);
+    setPaymentType('cash');
+    setInitialPayment('');
+    setPaymentMethod('');
+    setRequestKey(createSaleRequestKey());
+    setConfirmedSale(null);
+    setReceiptError('');
+    setReceiptNotice('');
+    setNotice('');
+    setError('');
+    inputRef.current?.focus();
+  }
+
+  async function saveNewCustomer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCustomerFormError('');
+    setCustomerFormNotice('');
+
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get('name') ?? '').trim();
+    const normalizedPhone = normalizeColombianPhone(newCustomerPhone);
+    const authorizationAccepted = formData.get('authorizationAccepted') === 'on';
+
+    if (!name) {
+      setCustomerFormError('El nombre es obligatorio.');
+      return;
+    }
+    if (!normalizedPhone || newCustomerPhone.length !== 10) {
+      setCustomerFormError('Ingresa un celular colombiano válido de 10 dígitos.');
+      return;
+    }
+    if (!authorizationAccepted) {
+      setCustomerFormError('Debes registrar la autorización de tratamiento de datos.');
+      return;
+    }
+
+    setSavingCustomer(true);
+    try {
+      const duplicateResponse = await fetch(
+        `/api/data/customers?phone=${encodeURIComponent(normalizedPhone)}`,
+        { cache: 'no-store' },
+      );
+      if (!duplicateResponse.ok) throw new Error(await responseError(duplicateResponse));
+      const duplicateBody = (await duplicateResponse.json()) as ApiResponse<{
+        duplicatePhone: boolean;
+      }>;
+
+      if (duplicateBody.data?.duplicatePhone) {
+        const searchResponse = await fetch(
+          `/api/data/customers?q=${encodeURIComponent(normalizedPhone)}`,
+          { cache: 'no-store' },
+        );
+        if (!searchResponse.ok) throw new Error(await responseError(searchResponse));
+        const searchBody = (await searchResponse.json()) as ApiResponse<{
+          data: CustomerRecord[];
+        }>;
+        const matchingCustomers = (searchBody.data?.data ?? []).filter(
+          (customer) => customer.phone === normalizedPhone,
+        );
+        const existingCustomer = matchingCustomers.find((customer) => customer.active);
+
+        if (existingCustomer) {
+          setSelectedCustomer(existingCustomer);
+          setCustomerSearch('');
+          setCustomers([]);
+          setShowNewCustomerForm(false);
+          setNewCustomerName('');
+          setNewCustomerPhone('');
+          setCustomerFormNotice(
+            'Ese teléfono ya estaba registrado. Seleccionamos el cliente existente.',
+          );
+          return;
+        }
+
+        if (matchingCustomers.length > 0) {
+          throw new Error(
+            'Ese teléfono pertenece a un cliente inactivo. Actívalo en Clientes para usarlo en esta venta.',
+          );
+        }
+        throw new Error(
+          'Ese teléfono ya está registrado. Busca el cliente en la lista antes de continuar.',
+        );
+      }
+
+      const response = await fetch('/api/data/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          phone: normalizedPhone,
+          document: '',
+          authorization: {
+            accepted: authorizationAccepted,
+            noticeVersion: CUSTOMER_DATA_NOTICE_VERSION,
+            source: 'formulario',
+          },
+        }),
+      });
+      if (!response.ok) throw new Error(await responseError(response));
+      const body = (await response.json()) as ApiResponse<CustomerSaveResult>;
+      if (!body.data?.customer) {
+        throw new Error('No se pudo confirmar el registro del cliente.');
+      }
+
+      setSelectedCustomer(body.data.customer);
+      setCustomerSearch('');
+      setCustomers([]);
+      setShowNewCustomerForm(false);
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      setCustomerFormNotice(
+        body.data.duplicatePhone
+          ? 'El cliente se guardó y quedó seleccionado, pero ya existe otro registro con ese teléfono.'
+          : 'Cliente guardado y seleccionado para esta venta.',
+      );
+    } catch (saveError) {
+      setCustomerFormError(
+        saveError instanceof Error ? saveError.message : 'No se pudo guardar el cliente.',
+      );
+    } finally {
+      setSavingCustomer(false);
+    }
+  }
+
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8">
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 pb-[calc(10rem+env(safe-area-inset-bottom))] sm:px-8 md:pb-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold">Registrar venta</h1>
-        <p className="mt-1 text-sm text-muted">
-          Busca el código, usa la pistola lectora o activa la cámara.
-        </p>
+        <p className="mt-1 text-sm text-muted">Sigue los pasos para registrar una venta.</p>
       </header>
 
-      {notice && (
-        <p role="status" className="mb-4 rounded-md bg-success/10 p-3 font-medium">
-          {notice}
-        </p>
-      )}
       {error && (
         <p role="alert" className="mb-4 rounded-md bg-danger/10 p-3 text-sm">
           {error}
         </p>
       )}
-      {receiptNotice && (
-        <p role="status" className="mb-4 rounded-md bg-success/10 p-3 text-sm font-medium">
-          {receiptNotice}
-        </p>
-      )}
-      {receiptError && (
-        <p role="alert" className="mb-4 rounded-md bg-danger/10 p-3 text-sm">
-          {receiptError}
-        </p>
-      )}
-      {confirmedSale && (
-        <section className="mb-4 rounded-lg border border-border bg-surface p-4">
-          <h2 className="font-semibold">Comprobante de {confirmedSale.saleNumber}</h2>
-          {receiptActions(confirmedSale.id, confirmedSale.saleNumber, confirmedSale.customerPhone)}
-        </section>
-      )}
 
-      <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void lookupCode(code);
-          }}
-        >
-          <label htmlFor="sale-product-code" className="mb-2 block font-medium">
-            Código de barras o del producto
-          </label>
-          <input
-            ref={inputRef}
-            id="sale-product-code"
-            autoComplete="off"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            placeholder="Escribe o escanea el código"
-            className="min-h-12 w-full rounded-md border border-border bg-background px-3"
-          />
-          <button
-            type="submit"
-            disabled={searchingProduct}
-            className="mt-2 min-h-11 w-full rounded-md bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            {searchingProduct ? 'Buscando…' : 'Agregar por código'}
-          </button>
-        </form>
-
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => void startCamera()}
-            disabled={cameraActive}
-            className="min-h-11 w-full rounded-md border border-primary px-4 font-semibold text-primary disabled:opacity-60"
-          >
-            {cameraActive ? 'Cámara activa' : 'Usar cámara'}
-          </button>
-          {cameraActive && (
-            <button
-              type="button"
-              onClick={stopCamera}
-              className="mt-2 min-h-11 w-full rounded-md border border-border px-4"
-            >
-              Apagar cámara
-            </button>
-          )}
-          {cameraMessage && <p role="status" className="mt-2 text-sm">{cameraMessage}</p>}
-          <video
-            ref={videoRef}
-            className={`mt-3 w-full rounded-md bg-background ${cameraActive ? 'block' : 'hidden'}`}
-            aria-label="Vista de la cámara para leer el código"
-            muted
-            playsInline
-          />
-        </div>
-
-        <form onSubmit={searchProducts} className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <label htmlFor="sale-product-search" className="sr-only">
-            Buscar producto por nombre o código
-          </label>
-          <input
-            id="sale-product-search"
-            type="search"
-            value={productSearch}
-            onChange={(event) => setProductSearch(event.target.value)}
-            placeholder="Buscar por nombre o código"
-            className="min-h-11 min-w-0 flex-1 rounded-md border border-border bg-background px-3"
-          />
-          <button
-            type="submit"
-            disabled={searchingProduct}
-            className="min-h-11 rounded-md border border-primary px-4 font-semibold text-primary disabled:opacity-60"
-          >
-            Buscar
-          </button>
-        </form>
-
-        {productResults.length > 0 && (
-          <ul className="mt-3 divide-y divide-border" aria-label="Resultados de productos">
-            {productResults.map((product) => (
-              <li key={product.id}>
-                <button
-                  type="button"
-                  onClick={() => addProduct(product)}
-                  className="min-h-12 w-full py-2 text-left"
-                >
-                  <span className="block font-medium">{product.name}</span>
-                  <span className="text-sm text-muted">
-                    {product.code} · {product.size || 'Sin talla'} · {product.color || 'Sin color'} ·{' '}
-                    {formatCOP(product.salePrice)} · Stock informativo: {product.stock}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <form onSubmit={(event) => void submitSale(event)} className="mt-5 space-y-4">
-        <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
-          <h2 className="text-lg font-semibold">Carrito</h2>
-          {cart.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">Agrega productos para iniciar la venta.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-border">
-              {cart.map(({ product, quantity }) => (
-                <li key={product.id} className="flex flex-wrap items-center gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{product.name}</p>
-                    <p className="text-sm text-muted">
-                      {product.code} · {formatCOP(product.salePrice)} · Stock informativo:{' '}
-                      {product.stock}
-                    </p>
-                  </div>
-                  <label className="flex items-center gap-2 text-sm">
-                    Cantidad
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={quantity}
-                      onChange={(event) =>
-                        changeQuantity(product.id, Number(event.target.value))
-                      }
-                      className="min-h-11 w-20 rounded-md border border-border bg-background px-2"
-                    />
-                  </label>
-                  <span className="w-full text-right font-semibold sm:w-auto">
-                    {formatCOP(product.salePrice * quantity)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-4 flex justify-between border-t border-border pt-4 text-lg font-bold">
-            <span>Total informativo</span>
-            <span>{formatCOP(total)}</span>
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            El precio y la disponibilidad finales se verifican en el servidor.
-          </p>
-        </section>
-
-        <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
-          <h2 className="text-lg font-semibold">Forma de pago</h2>
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {(
-              [
-                ['cash', 'Contado'],
-                ['credit', 'Fiado'],
-                ['partial', 'Pago parcial'],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={paymentType === value}
-                onClick={() => {
-                  setPaymentType(value as SalePaymentType);
-                  setError('');
-                }}
-                className={`min-h-11 rounded-md border px-3 font-medium ${
-                  paymentType === value
-                    ? 'border-primary bg-primary/10 text-primary dark:bg-primary dark:text-primary-foreground'
-                    : 'border-border'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {customerRequired && (
-            <div className="mt-4">
-              <label htmlFor="sale-customer-search" className="mb-2 block font-medium">
-                Cliente registrado (obligatorio)
-              </label>
+      <div
+        className={
+          confirmedSale
+            ? 'mx-auto max-w-xl'
+            : 'grid gap-6 md:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]'
+        }
+      >
+        {!confirmedSale && (
+          <div className="space-y-4">
+            <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
+              <h2 className="text-lg font-semibold">
+                <span className="mr-2 text-muted">1.</span>Cliente
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Busca por nombre o teléfono. Es opcional para ventas de contado.
+              </p>
               {selectedCustomer ? (
-                <div className="flex min-h-11 items-center justify-between gap-2 rounded-md border border-border px-3">
-                  <span>{selectedCustomer.name}</span>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3">
+                  <span className="min-h-11 content-center font-medium">
+                    {selectedCustomer.name} · {selectedCustomer.phone}
+                  </span>
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedCustomer(null);
                       setCustomerSearch('');
                     }}
-                    className="min-h-11 px-3 font-medium text-primary"
+                    className="min-h-11 px-3 font-medium underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
                     Cambiar
                   </button>
                 </div>
               ) : (
                 <>
-                  <input
-                    id="sale-customer-search"
-                    type="search"
-                    value={customerSearch}
-                    onChange={(event) => setCustomerSearch(event.target.value)}
-                    placeholder="Buscar cliente activo"
-                    className="min-h-11 w-full rounded-md border border-border bg-background px-3"
-                  />
+                  <label htmlFor="sale-customer-search" className="sr-only">
+                    Buscar cliente por nombre o teléfono
+                  </label>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      id="sale-customer-search"
+                      type="search"
+                      value={customerSearch}
+                      onChange={(event) => setCustomerSearch(event.target.value)}
+                      placeholder="Nombre o teléfono"
+                      autoComplete="off"
+                      className="min-h-11 w-full min-w-0 flex-1 rounded-md border border-border bg-background px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNewCustomerForm((show) => !show);
+                        setCustomerFormError('');
+                        setCustomerFormNotice('');
+                      }}
+                      aria-expanded={showNewCustomerForm}
+                      className="min-h-11 shrink-0 rounded-md border border-border px-3 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    >
+                      {showNewCustomerForm ? 'Cerrar formulario' : 'Nuevo cliente'}
+                    </button>
+                  </div>
                   {customers.length > 0 && (
-                    <ul className="mt-2 max-h-48 divide-y divide-border overflow-auto rounded-md border border-border">
+                    <ul
+                      className="mt-2 max-h-48 divide-y divide-border overflow-auto rounded-md border border-border"
+                      aria-label="Resultados de clientes"
+                    >
                       {customers.map((customer) => (
                         <li key={customer.id}>
                           <button
@@ -800,73 +771,466 @@ export function SalesManager() {
                               setCustomerSearch('');
                               setCustomers([]);
                             }}
-                            className="min-h-11 w-full px-3 text-left"
+                            className="min-h-12 w-full px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-primary"
                           >
-                            {customer.name}
+                            <span className="block font-medium">{customer.name}</span>
+                            <span className="text-sm text-muted">{customer.phone}</span>
                           </button>
                         </li>
                       ))}
                     </ul>
                   )}
                   {customerSearch.trim() && customers.length === 0 && (
-                    <p className="mt-2 text-sm text-muted">
-                      No se encontraron clientes activos.
-                    </p>
+                    <p className="mt-2 text-sm text-muted">No se encontraron clientes activos.</p>
                   )}
+                  {showNewCustomerForm && (
+                    <form
+                      data-testid="new-customer-form"
+                      onSubmit={(event) => void saveNewCustomer(event)}
+                      className="mt-4 grid gap-3 rounded-md border border-border bg-background p-3"
+                    >
+                      <h3 className="font-semibold">Registrar un cliente</h3>
+                      <label htmlFor="sale-new-customer-name" className="block font-medium">
+                        Nombre
+                        <input
+                          id="sale-new-customer-name"
+                          name="name"
+                          required
+                          autoComplete="name"
+                          value={newCustomerName}
+                          onChange={(event) => setNewCustomerName(event.target.value)}
+                          className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 font-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        />
+                      </label>
+                      <label htmlFor="sale-new-customer-phone" className="block font-medium">
+                        Teléfono
+                        <input
+                          id="sale-new-customer-phone"
+                          name="phone"
+                          type="tel"
+                          inputMode="numeric"
+                          autoComplete="tel-national"
+                          required
+                          maxLength={10}
+                          pattern="[0-9]{10}"
+                          value={newCustomerPhone}
+                          onChange={(event) =>
+                            setNewCustomerPhone(event.target.value.replace(/\D/g, '').slice(0, 10))
+                          }
+                          aria-describedby="sale-new-customer-phone-help"
+                          className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 font-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        />
+                        <span
+                          id="sale-new-customer-phone-help"
+                          className="mt-1 block text-sm text-muted"
+                        >
+                          Escribe los 10 dígitos del celular.
+                        </span>
+                      </label>
+                      <fieldset className="grid gap-2 rounded-md border border-border p-3">
+                        <legend className="px-1 text-sm font-semibold">
+                          Autorización de tratamiento de datos
+                        </legend>
+                        <p className="text-sm">{CUSTOMER_DATA_NOTICE}</p>
+                        <p className="text-xs text-muted">
+                          Versión del aviso: {CUSTOMER_DATA_NOTICE_VERSION}
+                        </p>
+                        <label className="flex min-h-11 items-center gap-3 py-2 text-sm">
+                          <input
+                            name="authorizationAccepted"
+                            type="checkbox"
+                            required
+                            className="h-5 w-5 shrink-0"
+                          />
+                          <span>El cliente leyó y autorizó el tratamiento de sus datos.</span>
+                        </label>
+                      </fieldset>
+                      {customerFormError && (
+                        <p role="alert" className="text-sm text-danger">
+                          {customerFormError}
+                        </p>
+                      )}
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <button
+                          type="submit"
+                          disabled={savingCustomer}
+                          className="min-h-11 rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+                        >
+                          {savingCustomer ? 'Guardando…' : 'Guardar y usar en esta venta'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowNewCustomerForm(false);
+                            setNewCustomerName('');
+                            setNewCustomerPhone('');
+                            setCustomerFormError('');
+                          }}
+                          className="min-h-11 rounded-md border border-border px-4 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setCustomerSearch('');
+                      setCustomers([]);
+                      setPaymentType('cash');
+                      setInitialPayment('');
+                    }}
+                    aria-pressed={paymentType === 'cash' && !selectedCustomer}
+                    className="mt-3 min-h-11 w-full rounded-md border border-border px-3 text-left font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    Venta de contado sin cliente
+                  </button>
                 </>
               )}
-            </div>
-          )}
-
-          {paymentType === 'partial' && (
-            <div className="mt-4">
-              <label htmlFor="sale-initial-payment" className="mb-2 block font-medium">
-                Pago inicial en pesos
-              </label>
-              <input
-                id="sale-initial-payment"
-                type="number"
-                min="1"
-                step="1"
-                value={initialPayment}
-                onChange={(event) => setInitialPayment(event.target.value)}
-                className="min-h-11 w-full rounded-md border border-border bg-background px-3"
-              />
-            </div>
-          )}
-
-          {(paymentType === 'cash' || paymentType === 'partial') && (
-            <div className="mt-4">
-              <label htmlFor="sale-payment-method" className="mb-2 block font-medium">
-                Método de pago
-              </label>
-              <select
-                id="sale-payment-method"
-                value={paymentMethod}
-                onChange={(event) =>
-                  setPaymentMethod(event.target.value as SalePaymentMethod | '')
-                }
-                className="min-h-11 w-full rounded-md border border-border bg-background px-3"
+              {customerFormNotice && (
+                <p role="status" className="mt-2 text-sm text-success">
+                  {customerFormNotice}
+                </p>
+              )}
+              <Link
+                href="/customers"
+                className="mt-3 inline-flex min-h-11 items-center font-medium underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
-                <option value="">Selecciona un método</option>
-                {paymentMethods.map((method) => (
-                  <option key={method.value} value={method.value}>
-                    {method.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </section>
+                Ir a clientes
+              </Link>
+              {customerRequired && !selectedCustomer && (
+                <p className="mt-2 text-sm text-danger">
+                  Elige un cliente para vender fiado o a pago parcial.
+                </p>
+              )}
+            </section>
 
-        <button
-          type="submit"
-          disabled={!canSell}
-          className="min-h-12 w-full rounded-md bg-primary px-4 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {saving ? 'Registrando venta…' : 'Vender'}
-        </button>
-      </form>
+            <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
+              <h2 className="text-lg font-semibold">
+                <span className="mr-2 text-muted">2.</span>Producto
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Escanea con la cámara, escribe un código o busca por nombre.
+              </p>
+              <form
+                className="mt-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void lookupCode(code);
+                }}
+              >
+                <label htmlFor="sale-product-code" className="mb-2 block font-medium">
+                  Código de barras o del producto
+                </label>
+                <input
+                  ref={inputRef}
+                  id="sale-product-code"
+                  autoComplete="off"
+                  value={code}
+                  onChange={(event) => setCode(event.target.value)}
+                  placeholder="Escribe o escanea el código"
+                  className="min-h-11 w-full rounded-md border border-border bg-background px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                />
+                <button
+                  type="submit"
+                  disabled={searchingProduct}
+                  className="mt-2 min-h-11 w-full rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+                >
+                  {searchingProduct ? 'Buscando…' : 'Agregar por código'}
+                </button>
+              </form>
+
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => void startCamera()}
+                  disabled={cameraActive}
+                  className="min-h-11 w-full rounded-md border border-primary px-4 font-semibold text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+                >
+                  {cameraActive ? 'Cámara activa' : 'Usar cámara'}
+                </button>
+                {cameraActive && (
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    className="mt-2 min-h-11 w-full rounded-md border border-border px-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    Apagar cámara
+                  </button>
+                )}
+                {cameraMessage && (
+                  <p role="status" className="mt-2 text-sm">
+                    {cameraMessage}
+                  </p>
+                )}
+                <video
+                  ref={videoRef}
+                  className={`mt-3 w-full rounded-md bg-background ${cameraActive ? 'block' : 'hidden'}`}
+                  aria-label="Vista de la cámara para leer el código"
+                  muted
+                  playsInline
+                />
+              </div>
+
+              <form onSubmit={searchProducts} className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <label htmlFor="sale-product-search" className="sr-only">
+                  Buscar producto por nombre o código
+                </label>
+                <input
+                  id="sale-product-search"
+                  type="search"
+                  value={productSearch}
+                  onChange={(event) => setProductSearch(event.target.value)}
+                  placeholder="Buscar por nombre o código"
+                  className="min-h-11 min-w-0 flex-1 rounded-md border border-border bg-background px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                />
+                <button
+                  type="submit"
+                  disabled={searchingProduct}
+                  className="min-h-11 rounded-md border border-primary px-4 font-semibold text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+                >
+                  Buscar
+                </button>
+              </form>
+
+              {productResults.length > 0 && (
+                <ul className="mt-3 divide-y divide-border" aria-label="Resultados de productos">
+                  {productResults.map((product) => (
+                    <li key={product.id}>
+                      <button
+                        type="button"
+                        onClick={() => addProduct(product)}
+                        className="min-h-12 w-full py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-primary"
+                      >
+                        <span className="block font-medium">{product.name}</span>
+                        <span className="text-sm text-muted">
+                          {product.code} · {product.size || 'Sin talla'} ·{' '}
+                          {product.color || 'Sin color'} · {formatCOP(product.salePrice)} · Stock
+                          informativo: {product.stock}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
+              <h2 className="text-lg font-semibold">
+                <span className="mr-2 text-muted">3.</span>Forma de pago
+              </h2>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {(
+                  [
+                    ['cash', 'Contado'],
+                    ['credit', 'Fiado'],
+                    ['partial', 'Pago parcial'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={paymentType === value}
+                    onClick={() => {
+                      setPaymentType(value as SalePaymentType);
+                      setError('');
+                    }}
+                    className={`min-h-11 rounded-md border px-3 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                      paymentType === value
+                        ? 'border-primary bg-primary/10 text-primary dark:bg-primary dark:text-primary-foreground'
+                        : 'border-border'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {paymentType === 'partial' && (
+                <div className="mt-4">
+                  <label htmlFor="sale-initial-payment" className="mb-2 block font-medium">
+                    Pago inicial en pesos
+                  </label>
+                  <input
+                    id="sale-initial-payment"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={initialPayment}
+                    onChange={(event) => setInitialPayment(event.target.value)}
+                    className="min-h-11 w-full rounded-md border border-border bg-background px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  />
+                </div>
+              )}
+
+              {(paymentType === 'cash' || paymentType === 'partial') && (
+                <div className="mt-4">
+                  <label htmlFor="sale-payment-method" className="mb-2 block font-medium">
+                    Método de pago
+                  </label>
+                  <select
+                    id="sale-payment-method"
+                    value={paymentMethod}
+                    onChange={(event) =>
+                      setPaymentMethod(event.target.value as SalePaymentMethod | '')
+                    }
+                    className="min-h-11 w-full rounded-md border border-border bg-background px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    <option value="">Selecciona un método</option>
+                    {paymentMethods.map((method) => (
+                      <option key={method.value} value={method.value}>
+                        {method.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        <aside className={confirmedSale ? '' : 'md:sticky md:top-20 md:self-start'}>
+          <form
+            id="sale-form"
+            data-testid="sale-form"
+            onSubmit={(event) => void submitSale(event)}
+            className="rounded-lg border border-border bg-surface p-4 shadow-sm"
+          >
+            <h2 className="text-lg font-semibold">4. Resumen de la venta</h2>
+            <div className="mt-3 border-b border-border pb-3">
+              <p className="text-sm text-muted">Cliente</p>
+              <p className="font-medium">
+                {confirmedSale
+                  ? (confirmedSale.customerName ?? 'Sin cliente')
+                  : (selectedCustomer?.name ??
+                    (customerRequired ? 'Elige un cliente' : 'Sin cliente'))}
+              </p>
+            </div>
+            <div className="mt-3 border-b border-border pb-3">
+              <p className="text-sm text-muted">Forma de pago</p>
+              <p className="font-medium">
+                {summaryPaymentType === 'cash'
+                  ? 'Contado'
+                  : summaryPaymentType === 'credit'
+                    ? 'Fiado'
+                    : 'Pago parcial'}
+              </p>
+            </div>
+
+            {cart.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">Agrega productos para iniciar la venta.</p>
+            ) : (
+              <ul className="mt-2 divide-y divide-border">
+                {cart.map(({ product, quantity }) => (
+                  <li key={product.id} className="py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-sm text-muted">
+                          {product.code} · {formatCOP(product.salePrice)} c/u
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={`Quitar ${product.name}`}
+                        onClick={() => changeQuantity(product.id, 0)}
+                        className="min-h-11 min-w-11 rounded-md px-2 text-sm font-medium underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <label htmlFor={`sale-quantity-${product.id}`} className="text-sm">
+                        Cantidad
+                      </label>
+                      <input
+                        id={`sale-quantity-${product.id}`}
+                        aria-label={`Cantidad de ${product.name}`}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={quantity}
+                        onChange={(event) => changeQuantity(product.id, Number(event.target.value))}
+                        className="min-h-11 w-24 rounded-md border border-border bg-background px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      />
+                      <span className="font-semibold">
+                        {formatCOP(product.salePrice * quantity)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-4 border-t border-border pt-4">
+              <p className="text-sm text-muted">Total</p>
+              <p data-testid="sale-total" className="text-3xl font-bold tracking-tight">
+                {formatCOP(summaryTotal)}
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                El precio final se confirma al registrar la venta.
+              </p>
+            </div>
+
+            {!confirmedSale && (
+              <button
+                type="submit"
+                disabled={!canSell}
+                className="mt-4 hidden min-h-12 w-full rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60 md:block"
+              >
+                {saving ? 'Registrando venta…' : 'Registrar venta'}
+              </button>
+            )}
+
+            {confirmedSale && (
+              <section
+                aria-label="Comprobante de venta"
+                className="mt-4 rounded-md border border-border bg-background p-3"
+              >
+                <h3 className="font-semibold">5. Comprobante de {confirmedSale.saleNumber}</h3>
+                {confirmedSale.customerName && (
+                  <p className="mt-1 text-sm text-muted">Cliente: {confirmedSale.customerName}</p>
+                )}
+                {notice && (
+                  <p
+                    role="status"
+                    className="mt-2 rounded-md bg-success/10 p-3 text-sm font-medium"
+                  >
+                    {notice}
+                  </p>
+                )}
+                {receiptNotice && (
+                  <p
+                    role="status"
+                    className="mt-2 rounded-md bg-success/10 p-3 text-sm font-medium"
+                  >
+                    {receiptNotice}
+                  </p>
+                )}
+                {receiptError && (
+                  <p role="alert" className="mt-2 rounded-md bg-danger/10 p-3 text-sm">
+                    {receiptError}
+                  </p>
+                )}
+                {receiptActions(
+                  confirmedSale.id,
+                  confirmedSale.saleNumber,
+                  confirmedSale.customerPhone,
+                )}
+                <button
+                  type="button"
+                  onClick={startNewSale}
+                  className="mt-3 min-h-11 w-full rounded-md border border-border px-4 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  Nueva venta
+                </button>
+              </section>
+            )}
+          </form>
+        </aside>
+      </div>
 
       <section className="mt-8 rounded-lg border border-border bg-surface p-4 shadow-sm">
         <h2 className="text-lg font-semibold">Ventas recientes</h2>
@@ -902,6 +1266,25 @@ export function SalesManager() {
           </ul>
         )}
       </section>
+
+      {!confirmedSale && (
+        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-surface px-4 py-2 shadow-lg md:hidden">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-muted">Total</p>
+              <p className="truncate text-lg font-bold">{formatCOP(total)}</p>
+            </div>
+            <button
+              type="submit"
+              form="sale-form"
+              disabled={!canSell}
+              className="min-h-11 shrink-0 rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? 'Registrando…' : 'Registrar venta'}
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
