@@ -64,12 +64,6 @@ function NavigationIconView({ icon }: { icon: NavigationIcon }) {
           <path d="M12 8v7m-3.5-3.5h7" />
         </svg>
       );
-    case 'reports':
-      return (
-        <svg {...sharedProps}>
-          <path d="M4 20V10m5 10V4m5 16v-7m5 7V7M2 20h20" />
-        </svg>
-      );
     case 'more':
       return (
         <svg {...sharedProps}>

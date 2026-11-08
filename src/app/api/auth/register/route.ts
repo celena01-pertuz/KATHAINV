@@ -32,9 +32,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = await createServerSupabaseClient();
+    const { email, password, fullName } = parsed.data;
     const { error } = await supabase.auth.signUp({
-      ...parsed.data,
+      email,
+      password,
       options: {
+        data: { full_name: fullName },
         emailRedirectTo: new URL('/auth/callback', request.url).toString(),
       },
     });

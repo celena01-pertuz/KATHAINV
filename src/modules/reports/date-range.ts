@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { ReportDateRange } from './types';
 
-function getBogotaDate(date: Date): string {
+export function getBogotaDate(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Bogota',
     year: 'numeric',
@@ -67,16 +67,18 @@ export const reportDateRangeSchema = z
     return getDefaultReportDateRange();
   });
 
-export const reportProductSchema = z.object({
-  id: z.string().min(1),
-  code: z.string(),
-  name: z.string(),
-  size: z.string(),
-  color: z.string(),
-  active: z.boolean(),
-  unitsSold: z.number().int().nonnegative().refine(Number.isSafeInteger),
-  totalSold: z.number().int().nonnegative().refine(Number.isSafeInteger),
-}).strict();
+export const reportProductSchema = z
+  .object({
+    id: z.string().min(1),
+    code: z.string(),
+    name: z.string(),
+    size: z.string(),
+    color: z.string(),
+    active: z.boolean(),
+    unitsSold: z.number().int().nonnegative().refine(Number.isSafeInteger),
+    totalSold: z.number().int().nonnegative().refine(Number.isSafeInteger),
+  })
+  .strict();
 
 export const productSalesReportSourceSchema = z.object({
   salesCount: z.number().int().nonnegative().refine(Number.isSafeInteger),

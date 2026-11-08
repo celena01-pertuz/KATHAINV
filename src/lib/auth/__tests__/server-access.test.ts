@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { cookiesMock, createServerSupabaseClientMock, deleteCookieMock, getUserMock } = vi.hoisted(
   () => ({
@@ -28,6 +28,85 @@ describe('acceso de servidor con sesión inválida', () => {
       ],
     });
     createServerSupabaseClientMock.mockResolvedValue({ auth: { getUser: getUserMock } });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('incluye el nombre de la persona en el contexto de la sesión verificada', async () => {
+    vi.stubEnv('ALLOWED_EMAILS', 'owner@example.test');
+    getUserMock.mockResolvedValue({
+      data: {
+        user: {
+          email: 'owner@example.test',
+          email_confirmed_at: '2026-10-29T00:00:00.000Z',
+          user_metadata: { full_name: 'Celena Pertuz' },
+        },
+      },
+      error: null,
+    });
+
+    await expect(getServerAccessContext()).resolves.toMatchObject({
+      status: 'authorized',
+      email: 'owner@example.test',
+      displayName: 'Celena Pertuz',
+    });
+  });
+
+  it('usa user_metadata.name cuando full_name no existe', async () => {
+    vi.stubEnv('ALLOWED_EMAILS', 'owner@example.test');
+    getUserMock.mockResolvedValue({
+      data: {
+        user: {
+          email: 'owner@example.test',
+          email_confirmed_at: '2026-10-29T00:00:00.000Z',
+          user_metadata: { name: 'Celena Pertuz' },
+        },
+      },
+      error: null,
+    });
+
+    await expect(getServerAccessContext()).resolves.toMatchObject({
+      displayName: 'Celena Pertuz',
+    });
+  });
+
+  it('no usa un correo guardado como nombre de la sesión', async () => {
+    vi.stubEnv('ALLOWED_EMAILS', 'owner@example.test');
+    getUserMock.mockResolvedValue({
+      data: {
+        user: {
+          email: 'owner@example.test',
+          email_confirmed_at: '2026-10-29T00:00:00.000Z',
+          user_metadata: { name: 'owner@example.test' },
+        },
+      },
+      error: null,
+    });
+
+    await expect(getServerAccessContext()).resolves.toMatchObject({
+      displayName: null,
+    });
+  });
+
+  it('ignora display_name y deja que el saludo use la alternativa del correo', async () => {
+    vi.stubEnv('ALLOWED_EMAILS', 'owner@example.test');
+    getUserMock.mockResolvedValue({
+      data: {
+        user: {
+          email: 'owner@example.test',
+          email_confirmed_at: '2026-10-29T00:00:00.000Z',
+          user_metadata: { display_name: 'Nombre antiguo' },
+        },
+      },
+      error: null,
+    });
+
+    await expect(getServerAccessContext()).resolves.toMatchObject({
+      displayName: null,
+      email: 'owner@example.test',
+    });
   });
 
   it('trata un refresh token inexistente como sesión ausente y elimina la cookie', async () => {

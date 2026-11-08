@@ -1,12 +1,5 @@
 export type NavigationIcon =
-  | 'home'
-  | 'products'
-  | 'customers'
-  | 'scanner'
-  | 'sales'
-  | 'purchases'
-  | 'reports'
-  | 'more';
+  'home' | 'products' | 'customers' | 'scanner' | 'sales' | 'purchases' | 'more';
 
 export interface NavigationItem {
   href: string;
@@ -24,5 +17,4 @@ export const moreNavigationItems: NavigationItem[] = [
   { href: '/customers', icon: 'customers', label: 'Clientes' },
   { href: '/scan', icon: 'scanner', label: 'Escáner' },
   { href: '/purchases', icon: 'purchases', label: 'Proveedores' },
-  { href: '/reports', icon: 'reports', label: 'Reportes' },
 ];

@@ -28,8 +28,9 @@ describe('BottomNav', () => {
       '/purchases',
     );
     expect(screen.queryByRole('link', { name: 'Compras' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Reportes' })).not.toBeInTheDocument();
 
-    for (const href of ['/customers', '/scan', '/purchases', '/reports']) {
+    for (const href of ['/customers', '/scan', '/purchases']) {
       expect(screen.getAllByRole('link').some((link) => link.getAttribute('href') === href)).toBe(
         true,
       );
@@ -60,7 +61,7 @@ describe('BottomNav', () => {
 
   it('marks Más active on routes contained in its group', () => {
     const { rerender } = render(<BottomNav />);
-    for (const pathname of ['/customers', '/scan', '/purchases', '/reports']) {
+    for (const pathname of ['/customers', '/scan', '/purchases']) {
       usePathnameMock.mockReturnValue(pathname);
       rerender(<BottomNav />);
       expect(screen.getByRole('button', { name: 'Más' })).toHaveClass(

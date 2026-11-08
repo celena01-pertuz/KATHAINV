@@ -8,7 +8,11 @@ import { registerSchema } from '@/lib/auth/schemas';
 import { AuthPageShell } from './AuthPageShell';
 
 export function RegisterForm() {
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    fullName?: string;
+    password?: string;
+  }>({});
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -19,6 +23,7 @@ export function RegisterForm() {
     const formData = new FormData(form);
     const parsed = registerSchema.safeParse({
       email: formData.get('email'),
+      fullName: formData.get('fullName'),
       password: formData.get('password'),
     });
 
@@ -26,7 +31,11 @@ export function RegisterForm() {
     setSuccessMessage('');
     if (!parsed.success) {
       const errors = parsed.error.flatten().fieldErrors;
-      setFieldErrors({ email: errors.email?.[0], password: errors.password?.[0] });
+      setFieldErrors({
+        email: errors.email?.[0],
+        fullName: errors.fullName?.[0],
+        password: errors.password?.[0],
+      });
       return;
     }
 
@@ -64,6 +73,20 @@ export function RegisterForm() {
       description="Solo las direcciones autorizadas podrán acceder al inventario."
     >
       <form aria-label="Crear cuenta" noValidate onSubmit={handleSubmit} className="space-y-5">
+        <Input
+          label="¿Cómo te llamamos?"
+          name="fullName"
+          type="text"
+          autoComplete="name"
+          minLength={2}
+          maxLength={40}
+          required
+          error={fieldErrors.fullName}
+          onChange={() => {
+            setFieldErrors((current) => ({ ...current, fullName: undefined }));
+            setFormError('');
+          }}
+        />
         <Input
           label="Correo electrónico"
           name="email"
