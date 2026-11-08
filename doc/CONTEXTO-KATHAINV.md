@@ -29,12 +29,12 @@ Alias de importación: `@/*` apunta a `src/*`.
 
 Los datos viven en archivos JSON dentro de `data/`, uno por colección. Cada archivo tiene `_meta` y `records`. Cada registro tiene `id`, `createdAt` y `updatedAt`.
 
-| Colección | Archivo | Campos propios |
-|---|---|---|
-| Producto/variante | `data/product.json` | `code` (único, interno o de fábrica), `codeType`, `variantGroupId`, `name`, `category`, `size`, `color`, `costPrice` y `salePrice` (pesos colombianos enteros), `stock`, `minStock`, `active` |
-| Proveedor | `data/supplier.json` | `name` |
-| Compra | `data/purchase.json` | `productCode`, `supplierId`, `quantity` (entero), `total` (pesos colombianos enteros, mayor o igual a cero), `date` |
-| Venta | `data/sale.json` | `productCode`, `quantity` (entero), `total` (decimal), `date` |
+| Colección         | Archivo              | Campos propios                                                                                                                                                                                |
+| ----------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Producto/variante | `data/product.json`  | `code` (único, interno o de fábrica), `codeType`, `variantGroupId`, `name`, `category`, `size`, `color`, `costPrice` y `salePrice` (pesos colombianos enteros), `stock`, `minStock`, `active` |
+| Proveedor         | `data/supplier.json` | `name`                                                                                                                                                                                        |
+| Compra            | `data/purchase.json` | `productCode`, `supplierId`, `quantity` (entero), `total` (pesos colombianos enteros, mayor o igual a cero), `date`                                                                           |
+| Venta             | `data/sale.json`     | `productCode`, `quantity` (entero), `total` (decimal), `date`                                                                                                                                 |
 
 Los esquemas Zod van en `data/_schema/` y se registran en `data/_schema/registry.ts`.
 
@@ -79,6 +79,8 @@ Requisitos para las tareas 3.3 y 3.4:
 4. Registrar ventas escaneando, con descuento automático y aviso de agotado.
 5. Ver los productos más y menos vendidos en un rango de fechas.
 6. Iniciar sesión, registrarse y cambiar la contraseña con Supabase Auth. Esta es una desviación explícita de la Tarea 3.3 del plan, que propone JWT y `user.json`: Supabase ya está activo en Vercel y los archivos JSON son de solo lectura en producción (sección 9), por lo que guardar usuarios ahí impediría el registro en el despliegue. El acceso a páginas y API de datos se limita en el servidor a correos confirmados incluidos en `ALLOWED_EMAILS`; la lista se compara sin espacios y sin distinguir mayúsculas.
+
+El registro también guarda el nombre de presentación en `user_metadata.full_name`. Las cuentas existentes pueden completarlo o cambiarlo desde el Inicio mediante `/api/auth/profile`, que verifica la sesión y nunca recibe un identificador de usuario del navegador. El nombre no participa en los permisos; si faltan `full_name` y `name`, el saludo usa solo la parte del correo anterior a `@`.
 7. Generar y revocar enlaces de comprobantes desde ventas, y consultar el comprobante público en `/receipt/[token]`.
 
 **No incluye:** facturación electrónica, varias sucursales, ventas por internet, impuestos, deudas con proveedores ni fotos de productos.
@@ -89,19 +91,19 @@ La implementación de productos protege las páginas y API con la validación de
 
 ## 7. Pantallas previstas
 
-| Ruta | Para qué sirve |
-|---|---|
-| `/` | Inicio con accesos rápidos |
-| `/login` | Iniciar sesión |
-| `/register` | Registrarse |
-| `/account` | Cambiar la contraseña |
-| `/products` | Lista, búsqueda, creación, edición, desactivación, eliminación permitida e impresión de etiquetas de productos y variantes |
-| `/scan` | Consultar un producto por código manual, pistola lectora o cámara; buscar por nombre y ofrecer registrar códigos desconocidos |
-| `/purchases` | Registrar compras a proveedor |
-| `/sales` | Registrar ventas escaneando |
-| `/receipt/[token]` | Consultar e imprimir un comprobante público revocable |
-| `/reports` | Más y menos vendidos por fechas |
-| `/api/health` | Estado del sistema (debe responder `status: ok`) |
+| Ruta               | Para qué sirve                                                                                                                |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `/`                | Inicio con accesos rápidos                                                                                                    |
+| `/login`           | Iniciar sesión                                                                                                                |
+| `/register`        | Registrarse                                                                                                                   |
+| `/account`         | Cambiar la contraseña                                                                                                         |
+| `/products`        | Lista, búsqueda, creación, edición, desactivación, eliminación permitida e impresión de etiquetas de productos y variantes    |
+| `/scan`            | Consultar un producto por código manual, pistola lectora o cámara; buscar por nombre y ofrecer registrar códigos desconocidos |
+| `/purchases`       | Registrar compras a proveedor                                                                                                 |
+| `/sales`           | Registrar ventas escaneando                                                                                                   |
+| `/receipt/[token]` | Consultar e imprimir un comprobante público revocable                                                                         |
+| `/reports`         | Más y menos vendidos por fechas                                                                                               |
+| `/api/health`      | Estado del sistema (debe responder `status: ok`)                                                                              |
 
 ## 8. Organización del código
 
@@ -128,13 +130,13 @@ En Vercel los archivos del proyecto son de solo lectura, así que escribir en `d
 
 ## 10. Fases
 
-| Fase | Qué se construye |
-|---|---|
-| 0 | Proyecto base, `/api/health`, despliegue y CI funcionando |
-| 1 | Motor de datos: tipos, `json-db.ts`, esquemas Zod, API genérica, tests |
-| 2 | Interfaz: componentes base, tema claro y oscuro, menú pensado para celular |
-| 3 | Productos, escáner, compras, ventas, reportes y protección de acceso |
-| 4 | Persistencia real en producción, rendimiento, documentación y versión 1.0 |
+| Fase | Qué se construye                                                           |
+| ---- | -------------------------------------------------------------------------- |
+| 0    | Proyecto base, `/api/health`, despliegue y CI funcionando                  |
+| 1    | Motor de datos: tipos, `json-db.ts`, esquemas Zod, API genérica, tests     |
+| 2    | Interfaz: componentes base, tema claro y oscuro, menú pensado para celular |
+| 3    | Productos, escáner, compras, ventas, reportes y protección de acceso       |
+| 4    | Persistencia real en producción, rendimiento, documentación y versión 1.0  |
 
 No se pasa a la siguiente fase hasta cumplir todos los criterios de la actual. La guía detallada del profe está en `guia-construccion-por-fases.md`.
 
@@ -142,10 +144,10 @@ No se pasa a la siguiente fase hasta cumplir todos los criterios de la actual. L
 
 La paleta acordada es beige y rosa; en modo oscuro se usa una base neutra con rosa y blanco. La pantalla de ventas usa dos columnas y permite el alta rápida de clientes.
 
-**Decisiones de interfaz pendientes; no implementarlas sin una solicitud:**
+**Decisiones de interfaz pendientes:**
 
-- Menú: Inicio, Ventas, Productos y **Más**, con Clientes, Escáner y Proveedores dentro de Más. “Compras” se renombra “Proveedores” solo en textos visibles; conservar la ruta `/purchases`.
-- Inicio: saludo según la hora de Colombia; botones grandes para Nueva venta, Escanear y Registrar producto; reporte del día con selector Hoy / Ayer / Elegir fecha y enlace “Ver reporte completo”. Reportes no debe aparecer en el menú.
 - Unificar encabezados y espacios, dejar un solo botón principal por pantalla y mostrar mensajes amables cuando no haya datos.
 
-El seguimiento de elementos completados y pendientes se mantiene en `doc/ESTADO_EJECUCION.md`; consúltalo antes de iniciar una tarea para no duplicar trabajo. Siguen pendientes la alerta de agotado, las vistas de productos y clientes en dos columnas, el saludo y el reporte de inicio, la revisión contra el plan, los fiados, la anulación de ventas, la Fase 4 y el acuerdo con el profesor sobre descuentos.
+El menú principal ya muestra Inicio, Ventas, Productos y Más; Más contiene Clientes, Escáner y Proveedores (la ruta interna sigue siendo `/purchases`). Reportes se consulta desde el enlace “Ver reporte completo” del inicio, no desde el menú.
+
+El inicio ya ofrece saludo según la hora de Colombia, accesos rápidos, selector Hoy / Ayer / fecha y el reporte diario. El seguimiento detallado se mantiene en `doc/ESTADO_EJECUCION.md`. Siguen pendientes la alerta de agotado, las vistas de productos y clientes en dos columnas, la revisión contra el plan, los fiados, la anulación de ventas, la Fase 4 y el acuerdo con el profesor sobre descuentos.

@@ -2,18 +2,18 @@
 
 Los prompts P01–P09 permanecen pendientes. P00 queda completado con la auditoría y artefactos indicados abajo.
 
-| Prompt | Fase | Estado | Evidencia |
-|---|---|---|---|
-| P00 | Auditoría y reconciliación | Completado | `ESTADO_ACTUAL.md`, `DICTAMEN.md`, instrucciones Copilot y cierre de fase; build, test (40 archivos, 144 pruebas), type-check y lint correctos. |
-| P01 | Base de datos | Pendiente | — |
-| P02 | Reglas | Pendiente | — |
-| P03 | Servidor y sesión | Pendiente | — |
-| P04 | Datos y API | Pendiente | — |
-| P05 | Datos y API | Pendiente | — |
-| P06 | Interfaz | Pendiente | — |
-| P07 | Interfaz | Pendiente | — |
-| P08 | Interfaz y aceptación | Pendiente | — |
-| P09 | Opcionales | Pendiente | — |
+| Prompt | Fase                       | Estado     | Evidencia                                                                                                                                       |
+| ------ | -------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| P00    | Auditoría y reconciliación | Completado | `ESTADO_ACTUAL.md`, `DICTAMEN.md`, instrucciones Copilot y cierre de fase; build, test (40 archivos, 144 pruebas), type-check y lint correctos. |
+| P01    | Base de datos              | Pendiente  | —                                                                                                                                               |
+| P02    | Reglas                     | Pendiente  | —                                                                                                                                               |
+| P03    | Servidor y sesión          | Pendiente  | —                                                                                                                                               |
+| P04    | Datos y API                | Pendiente  | —                                                                                                                                               |
+| P05    | Datos y API                | Pendiente  | —                                                                                                                                               |
+| P06    | Interfaz                   | Pendiente  | —                                                                                                                                               |
+| P07    | Interfaz                   | Pendiente  | —                                                                                                                                               |
+| P08    | Interfaz y aceptación      | Pendiente  | —                                                                                                                                               |
+| P09    | Opcionales                 | Pendiente  | —                                                                                                                                               |
 
 ## Bitácora
 
@@ -32,19 +32,31 @@ Estado informado por la estudiante y sincronizado en el seguimiento. Las verific
 
 - Alerta de agotado.
 - Vista de productos y clientes en dos columnas.
-- Saludo en la pantalla de inicio.
 - Revisión general contra el plan.
 - Fiados y anulación de ventas.
 - Fase 4.
 - Acordar con el profesor la regla de descuentos antes de implementarla.
 
-**Decisiones de diseño pendientes (no implementar todavía):**
+**Decisiones de diseño pendientes:**
 
-- Menú principal: **Inicio, Ventas, Productos y Más**. Dentro de **Más**: Clientes, Escáner y Proveedores. “Compras” pasa a llamarse “Proveedores” solo en los textos visibles; la ruta interna `/purchases` no cambia.
-- Inicio: saludo según la hora de Colombia; botones grandes para **Nueva venta**, **Escanear** y **Registrar producto**; reporte del día con selector **Hoy / Ayer / Elegir fecha** y enlace **Ver reporte completo**. Quitar **Reportes** del menú.
 - Mantener las pantallas parejas: mismo estilo de encabezado y espacios, un solo botón principal por pantalla y mensajes amables cuando no haya datos.
 
 Los prompts P01–P09 conservan su estado formal hasta completar y verificar todos sus criterios; estos avances parciales no cierran por sí solos una fase.
+
+### Tarea 3.5 · Inicio con saludo y reporte del día
+
+- Se reemplazó “Hola mundo” por un inicio con saludo basado en la hora de Colombia y el nombre disponible en la sesión verificada (o solo el prefijo del correo).
+- El selector Hoy / Ayer / fecha consulta un rango de un día en la API de reportes ya existente; los productos por reponer se leen desde la API existente de productos y se ordenan con agotados primero.
+- Se retiró Reportes del menú; `/reports` sigue disponible desde “Ver reporte completo”.
+- Sin SQL ni migraciones: se reutilizaron las rutas/API actuales, que mantienen la verificación de acceso 401/403.
+- La página del Inicio se fuerza dinámica para calcular Hoy en cada visita; pruebas cubren la selección de Hoy/Ayer.
+- En los registros revisados no se reprodujo un fallo de `/api/data/reports` (las solicitudes visibles respondieron 200). Sí apareció `Invalid Refresh Token: Refresh Token Not Found` (400, `refresh_token_not_found`), que indica una sesión Supabase obsoleta; no se atribuye al RPC del reporte.
+
+### Tarea 3.3 · Nombre visible con Supabase Auth
+
+- El registro exige el nombre y lo guarda en `user_metadata.full_name`; para cuentas existentes, el Inicio permite guardarlo o cambiarlo mediante una ruta protegida que toma la sesión del servidor.
+- El nombre se usa solo para mostrar: primero `full_name`, luego `name` y, si falta, el prefijo del correo. No se guarda en la base de datos ni se usa para autorizar.
+- Validación con Zod: texto recortado de 2 a 40 caracteres, sin saltos de línea ni caracteres de control. Sin SQL ni migraciones.
 
 ### P00 · Auditoría y reconciliación
 
