@@ -2,6 +2,11 @@ import type { BaseRecord, CollectionFile } from '@/lib/types';
 import { JsonDBError, getAll, getById, query, transactCollection } from '@/lib/json-db';
 import { generateId, now } from '@/lib/utils';
 import { normalizeProductCode } from './code-utils';
+import {
+  hasDuplicateProductReference,
+  PRODUCTO_CON_EXISTENCIAS_MESSAGE,
+  REFERENCIA_DUPLICADA_MESSAGE,
+} from './product-rules';
 import type { ProductCreateInput, ProductDeleteResult, ProductInput, ProductRecord } from './types';
 
 const COLLECTION = 'product';
@@ -55,6 +60,10 @@ export async function findProductByCode(code: string): Promise<ProductRecord | n
 }
 
 export async function createProduct(input: ProductCreateInput): Promise<ProductRecord> {
+  if (!input.active && input.stock > 0) {
+    throw new JsonDBError('PRODUCTO_CON_EXISTENCIAS', PRODUCTO_CON_EXISTENCIAS_MESSAGE);
+  }
+
   return transactCollection<ProductRecord, ProductRecord>(COLLECTION, (collection) => {
     let code = input.code?.trim() ?? '';
     let codeType: ProductRecord['codeType'] = 'factory';
@@ -70,6 +79,9 @@ export async function createProduct(input: ProductCreateInput): Promise<ProductR
       collection._meta.nextProductCodeSequence = sequence + 1;
     } else if (duplicateCode(collection.records, code)) {
       throw new JsonDBError('DUPLICATE_CODE', 'Ya existe un producto con ese código.');
+    }
+    if (hasDuplicateProductReference(collection.records, input)) {
+      throw new JsonDBError('REFERENCIA_DUPLICADA', REFERENCIA_DUPLICADA_MESSAGE);
     }
 
     const record: ProductRecord = {
@@ -93,8 +105,14 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
 
     const current = collection.records[index];
     if (!current) return { result: null, changed: false };
+    if (!input.active && input.stock > 0) {
+      throw new JsonDBError('PRODUCTO_CON_EXISTENCIAS', PRODUCTO_CON_EXISTENCIAS_MESSAGE);
+    }
     if (duplicateCode(collection.records, input.code, id)) {
       throw new JsonDBError('DUPLICATE_CODE', 'Ya existe un producto con ese código.');
+    }
+    if (hasDuplicateProductReference(collection.records, input, id)) {
+      throw new JsonDBError('REFERENCIA_DUPLICADA', REFERENCIA_DUPLICADA_MESSAGE);
     }
 
     if (
@@ -125,18 +143,17 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
 }
 
 export async function removeOrDeactivateProduct(id: string): Promise<ProductDeleteResult | null> {
-  return transactCollection<ProductRecord, ProductDeleteResult | null>(COLLECTION, async (collection) => {
+  return transactCollection<ProductRecord, ProductDeleteResult | null>(COLLECTION, (collection) => {
     const index = collection.records.findIndex((record) => record.id === id);
     if (index < 0) return { result: null, changed: false };
 
     const product = collection.records[index];
     if (!product) return { result: null, changed: false };
-    if (await productHasMovements(product.code)) {
-      collection.records[index] = { ...product, active: false, updatedAt: now() };
-      return { result: { deleted: false, deactivated: true }, changed: true };
+    if (product.stock > 0) {
+      throw new JsonDBError('PRODUCTO_CON_EXISTENCIAS', PRODUCTO_CON_EXISTENCIAS_MESSAGE);
     }
 
-    collection.records.splice(index, 1);
-    return { result: { deleted: true, deactivated: false }, changed: true };
+    collection.records[index] = { ...product, active: false, updatedAt: now() };
+    return { result: { deleted: false, deactivated: true }, changed: true };
   });
 }

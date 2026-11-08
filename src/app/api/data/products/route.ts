@@ -45,7 +45,10 @@ async function authorizationError() {
 }
 
 function serviceError(error: unknown) {
-  if (error instanceof JsonDBError && error.code === 'DUPLICATE_CODE') {
+  if (
+    error instanceof JsonDBError &&
+    ['DUPLICATE_CODE', 'REFERENCIA_DUPLICADA', 'PRODUCTO_CON_EXISTENCIAS'].includes(error.code)
+  ) {
     return apiError(error.message, error.code, 409);
   }
   if (error instanceof JsonDBError && error.code === 'READ_ONLY') {

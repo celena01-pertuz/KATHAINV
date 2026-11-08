@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { ProductLabelPrint } from './ProductLabelPrint';
+import { PRODUCTO_CON_EXISTENCIAS_MESSAGE } from '../product-rules';
 import type { ProductRecord } from '../types';
 
 type ProductFormValues = Partial<ProductRecord> & { variantGroupId?: string };
@@ -61,6 +62,9 @@ export function ProductManager() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const editing = Boolean(formProduct?.id);
+    const activeControlDisabled = Boolean(
+      editing && formProduct?.active && (formProduct.stock ?? 0) > 0,
+    );
     const payload = {
       ...(editing ? formProduct : {}),
       ...(formProduct?.variantGroupId ? { variantGroupId: formProduct.variantGroupId } : {}),
@@ -73,7 +77,7 @@ export function ProductManager() {
       salePrice: Number(formData.get('salePrice')),
       stock: Number(formData.get('stock')),
       minStock: Number(formData.get('minStock')),
-      active: formData.get('active') === 'on',
+      active: activeControlDisabled ? true : formData.get('active') === 'on',
     };
 
     try {
@@ -91,8 +95,8 @@ export function ProductManager() {
     }
   }
 
-  async function deleteProduct(product: ProductRecord) {
-    if (!window.confirm(`¿Eliminar o desactivar "${product.name}" (${product.code})?`)) return;
+  async function deactivateProduct(product: ProductRecord) {
+    if (!window.confirm(`¿Desactivar "${product.name}" (${product.code})?`)) return;
     setError('');
     try {
       const response = await fetch(`/api/data/products?id=${encodeURIComponent(product.id)}`, {
@@ -104,12 +108,12 @@ export function ProductManager() {
       };
       setNotice(
         body.data.deactivated
-          ? 'El producto tenía movimientos y se desactivó; su historial se conserva.'
-          : 'Producto eliminado definitivamente.',
+          ? 'El producto se desactivó; su historial se conserva.'
+          : 'No se pudo desactivar el producto.',
       );
       await loadProducts();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar el producto.');
+      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo desactivar el producto.');
     }
   }
 
@@ -316,13 +320,29 @@ export function ProductManager() {
                 >
                   Agregar variante
                 </button>
-                <button
-                  type="button"
-                  className="min-h-10 rounded-md border border-danger px-3 text-sm text-danger"
-                  onClick={() => void deleteProduct(product)}
-                >
-                  Eliminar / desactivar
-                </button>
+                {product.active && (
+                  <div>
+                    <button
+                      type="button"
+                      className="min-h-10 rounded-md border border-danger px-3 text-sm text-danger disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => void deactivateProduct(product)}
+                      disabled={product.stock > 0}
+                      aria-describedby={
+                        product.stock > 0 ? `deactivate-help-${product.id}` : undefined
+                      }
+                    >
+                      Desactivar
+                    </button>
+                    {product.stock > 0 && (
+                      <p
+                        id={`deactivate-help-${product.id}`}
+                        className="mt-1 max-w-64 text-xs text-muted"
+                      >
+                        {PRODUCTO_CON_EXISTENCIAS_MESSAGE}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </li>
           ))}
@@ -344,6 +364,9 @@ function ProductForm({
   const editing = Boolean(product.id);
   const [category, setCategory] = useState(product.category ?? 'ropa');
   const offersOneSize = category === 'bolso' || category === 'accesorio';
+  const activeControlDisabled = Boolean(
+    editing && product.active && (product.stock ?? 0) > 0,
+  );
 
   return (
     <form
@@ -466,9 +489,20 @@ function ProductForm({
         />
       </label>
       <label className="flex min-h-11 items-center gap-2 sm:col-span-2">
-        <input type="checkbox" name="active" defaultChecked={product.active ?? true} />
+        <input
+          type="checkbox"
+          name="active"
+          defaultChecked={product.active ?? true}
+          disabled={activeControlDisabled}
+          aria-describedby={activeControlDisabled ? 'product-active-help' : undefined}
+        />
         Producto activo
       </label>
+      {activeControlDisabled && (
+        <p id="product-active-help" className="text-sm text-muted sm:col-span-2">
+          {PRODUCTO_CON_EXISTENCIAS_MESSAGE}
+        </p>
+      )}
       <div className="flex gap-2 sm:col-span-2">
         <button
           type="submit"

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { productCreateSchema, productRecordSchema } from '@data/_schema/product.schema';
 import {
   createProduct,
+  getProduct,
   normalizeProductCode,
   removeOrDeactivateProduct,
   updateProduct,
@@ -54,12 +55,13 @@ afterEach(async () => {
 });
 
 describe('servicio de productos', () => {
-  it('genera consecutivos y no reutiliza el número después de eliminar', async () => {
-    const first = await createProduct(validInput);
+  it('genera consecutivos sin eliminar el producto desactivado', async () => {
+    const first = await createProduct({ ...validInput, stock: 0 });
     expect(first.code).toBe('KAT-000001');
     await removeOrDeactivateProduct(first.id);
+    await expect(getProduct(first.id)).resolves.toMatchObject({ active: false });
 
-    const second = await createProduct(validInput);
+    const second = await createProduct({ ...validInput, name: 'Camisa' });
     expect(second.code).toBe('KAT-000002');
   });
 
@@ -97,8 +99,60 @@ describe('servicio de productos', () => {
     });
   });
 
-  it('desactiva en vez de eliminar un producto con movimientos', async () => {
+  it('rechaza referencias duplicadas al crear ignorando mayúsculas y bordes con espacios', async () => {
+    await createProduct({
+      ...validInput,
+      code: 'REF-01',
+      name: 'Blusa',
+      size: 'M',
+      color: 'Negro',
+    });
+
+    await expect(
+      createProduct({
+        ...validInput,
+        code: 'REF-02',
+        variantGroupId: 'otro-grupo',
+        name: '  BLUSA  ',
+        size: ' m ',
+        color: 'NEGRO ',
+      }),
+    ).rejects.toMatchObject({
+      code: 'REFERENCIA_DUPLICADA',
+      message:
+        'Ya existe un producto con ese nombre, talla y color. Para sumar unidades registra una compra en Proveedores.',
+    });
+  });
+
+  it('rechaza referencias duplicadas al editar otro producto', async () => {
+    await createProduct({ ...validInput, code: 'REF-11' });
+    const second = await createProduct({
+      ...validInput,
+      code: 'REF-12',
+      size: 'L',
+    });
+
+    await expect(
+      updateProduct(second.id, {
+        ...second,
+        name: '  BLUSA ',
+        size: ' M ',
+        color: ' negro',
+      }),
+    ).rejects.toMatchObject({ code: 'REFERENCIA_DUPLICADA' });
+  });
+
+  it('no desactiva productos con existencias', async () => {
     const product = await createProduct(validInput);
+
+    await expect(removeOrDeactivateProduct(product.id)).rejects.toMatchObject({
+      code: 'PRODUCTO_CON_EXISTENCIAS',
+      message: 'Este producto todavía tiene unidades. Déjalo en 0 antes de desactivarlo.',
+    });
+  });
+
+  it('desactiva sin borrar un producto con movimientos cuando el stock es cero', async () => {
+    const product = await createProduct({ ...validInput, stock: 0 });
     await writeCollection('sale', [
       {
         id: 'sale_1',
@@ -115,6 +169,10 @@ describe('servicio de productos', () => {
       deleted: false,
       deactivated: true,
     });
+    await expect(getProduct(product.id)).resolves.toMatchObject({ active: false, stock: 0 });
+    await expect(
+      updateProduct(product.id, { ...product, active: true }),
+    ).resolves.toMatchObject({ active: true });
   });
 });
 

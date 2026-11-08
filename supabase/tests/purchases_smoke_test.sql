@@ -195,7 +195,8 @@ BEGIN
   END IF;
 
   UPDATE public.products
-  SET active = false
+  SET stock = 0,
+      active = false
   WHERE id = v_product_id;
 
   BEGIN

@@ -79,7 +79,7 @@ BEGIN
       'Azul',
       5000,
       12500,
-      3,
+      0,
       0,
       false
     );
@@ -242,7 +242,7 @@ BEGIN
       END IF;
   END;
 
-  -- Un producto inactivo no se puede vender aunque tenga existencias.
+  -- Un producto inactivo no se puede vender.
   BEGIN
     PERFORM *
     FROM public.create_sale(

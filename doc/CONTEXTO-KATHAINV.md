@@ -44,8 +44,9 @@ Los esquemas Zod van en `data/_schema/` y se registran en `data/_schema/registry
 - Cuando el `stock` de un producto llega a cero, el sistema **avisa que está agotado**.
 - **Cada combinación de producto, talla y color tiene su propio código y su propio stock.** El `code` es la llave única.
 - Las variantes de un modelo comparten `variantGroupId`; cada una conserva su código, precio y existencias.
-- Si no se entrega un código de fábrica, la aplicación genera un consecutivo interno `KAT-000001`, `KAT-000002`, etc. Los números generados no se reutilizan tras eliminar productos. Los códigos se comparan ignorando espacios y mayúsculas/minúsculas.
-- Los productos con movimientos se desactivan para conservar el historial; solo se permite el borrado definitivo si nunca tuvieron movimientos.
+- Si no se entrega un código de fábrica, la aplicación genera un consecutivo interno `KAT-000001`, `KAT-000002`, etc. Los números generados no se reutilizan aunque luego se desactive el producto. Los códigos se comparan ignorando espacios y mayúsculas/minúsculas.
+- Los productos nunca se borran. Solo se pueden desactivar cuando el stock es cero; una referencia inactiva se puede reactivar.
+- El nombre, la talla y el color identifican una referencia única, ignorando mayúsculas y espacios al inicio o al final. El código también es único por separado; `variantGroupId` solo agrupa variantes.
 - El costo de compra, el precio de venta y otros importes de producto se guardan como pesos colombianos enteros, sin centavos; la interfaz los presenta con formato `es-CO`.
 - Si se escanea un código que no existe, **primero se registra como producto nuevo**, con el código ya llenado en el formulario. No se puede vender ni consultar antes.
 - Una compra a proveedor **suma** al `stock`. Una venta **resta**.
@@ -97,7 +98,7 @@ La implementación de productos protege las páginas y API con la validación de
 | `/login`           | Iniciar sesión                                                                                                                |
 | `/register`        | Registrarse                                                                                                                   |
 | `/account`         | Cambiar la contraseña                                                                                                         |
-| `/products`        | Lista, búsqueda, creación, edición, desactivación, eliminación permitida e impresión de etiquetas de productos y variantes    |
+| `/products`        | Lista, búsqueda, creación, edición, desactivación sin borrado e impresión de etiquetas de productos y variantes                 |
 | `/scan`            | Consultar un producto por código manual, pistola lectora o cámara; buscar por nombre y ofrecer registrar códigos desconocidos |
 | `/purchases`       | Registrar compras a proveedor                                                                                                 |
 | `/sales`           | Registrar ventas escaneando                                                                                                   |
@@ -150,4 +151,8 @@ La paleta acordada es beige y rosa; en modo oscuro se usa una base neutra con ro
 
 El menú principal ya muestra Inicio, Ventas, Productos y Más; Más contiene Clientes, Escáner y Proveedores (la ruta interna sigue siendo `/purchases`). Reportes se consulta desde el enlace “Ver reporte completo” del inicio, no desde el menú.
 
-El inicio ya ofrece saludo según la hora de Colombia, accesos rápidos, selector Hoy / Ayer / fecha y el reporte diario. El seguimiento detallado se mantiene en `doc/ESTADO_EJECUCION.md`. Siguen pendientes la alerta de agotado, las vistas de productos y clientes en dos columnas, la revisión contra el plan, los fiados, la anulación de ventas, la Fase 4 y el acuerdo con el profesor sobre descuentos.
+Ya existen los reportes, las compras con total entero no negativo, las etiquetas, el Inicio con reporte diario y saludo, y el nombre de presentación de la cuenta.
+
+RN-02 y RN-15 se implementaron como Tarea 3.2 (enriquecimiento del módulo de productos): referencia única normalizada por nombre+talla+color; productos no borrables y desactivación solo con stock cero. La migración y el smoke test quedaron preparados localmente; no se ejecutó SQL.
+
+El seguimiento detallado se mantiene en `doc/ESTADO_EJECUCION.md`. Siguen pendientes la alerta de agotado, las vistas de productos y clientes en dos columnas, la revisión general contra el plan, los fiados, la anulación de ventas, la Fase 4 y el acuerdo con el profesor sobre descuentos.

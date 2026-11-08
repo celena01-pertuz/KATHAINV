@@ -57,7 +57,7 @@ beforeEach(() => {
   queryBuilder.eq.mockReturnValue(queryBuilder);
   queryBuilder.insert.mockReturnValue(queryBuilder);
   queryBuilder.maybeSingle.mockReturnValue(queryBuilder);
-  queryBuilder.order.mockReturnValue(queryBuilder);
+  queryBuilder.order.mockResolvedValue({ data: [], error: null });
   queryBuilder.select.mockReturnValue(queryBuilder);
   queryBuilder.single.mockReturnValue(queryBuilder);
   queryBuilder.update.mockReturnValue(queryBuilder);
@@ -110,12 +110,31 @@ describe('repositorio Supabase de productos', () => {
   it('traduce el error de unicidad de Postgres al conflicto conocido por la app', async () => {
     queryBuilder.single.mockResolvedValue({
       data: null,
-      error: { code: '23505', message: 'detalle interno de la base' },
+      error: {
+        code: '23505',
+        message: 'duplicate key violates products_normalized_code_unique',
+      },
     });
 
     await expect(createProduct({ ...validInput, code: 'FAB-1' })).rejects.toMatchObject({
       code: 'DUPLICATE_CODE',
       message: 'Ya existe un producto con ese código.',
+    });
+  });
+
+  it('mapea el 23505 del índice de referencia al conflicto de referencia', async () => {
+    queryBuilder.single.mockResolvedValue({
+      data: null,
+      error: {
+        code: '23505',
+        message: 'duplicate key violates products_reference_unique_idx',
+      },
+    });
+
+    await expect(createProduct({ ...validInput, code: 'FAB-1' })).rejects.toMatchObject({
+      code: 'REFERENCIA_DUPLICADA',
+      message:
+        'Ya existe un producto con ese nombre, talla y color. Para sumar unidades registra una compra en Proveedores.',
     });
   });
 
@@ -132,7 +151,10 @@ describe('repositorio Supabase de productos', () => {
   });
 
   it('desactiva el producto sin intentar eliminarlo en modo Supabase', async () => {
-    queryBuilder.maybeSingle.mockResolvedValue({ data: productRow, error: null });
+    queryBuilder.maybeSingle.mockResolvedValue({
+      data: { ...productRow, stock: 0 },
+      error: null,
+    });
 
     await expect(removeOrDeactivateProduct('product_1')).resolves.toEqual({
       deleted: false,
@@ -142,5 +164,16 @@ describe('repositorio Supabase de productos', () => {
     expect(queryBuilder.update).toHaveBeenCalledWith(
       expect.objectContaining({ active: false }),
     );
+    expect(queryBuilder.eq).toHaveBeenCalledWith('stock', 0);
+  });
+
+  it('rechaza la desactivación Supabase cuando la lectura muestra stock positivo', async () => {
+    queryBuilder.maybeSingle.mockResolvedValue({ data: productRow, error: null });
+
+    await expect(removeOrDeactivateProduct('product_1')).rejects.toMatchObject({
+      code: 'PRODUCTO_CON_EXISTENCIAS',
+      message: 'Este producto todavía tiene unidades. Déjalo en 0 antes de desactivarlo.',
+    });
+    expect(queryBuilder.update).not.toHaveBeenCalled();
   });
 });

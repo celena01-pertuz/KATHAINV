@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { JsonDBError } from '@/lib/json-db';
 
 const {
   createProductMock,
@@ -42,6 +43,64 @@ describe('/api/data/products autorización', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getServerAccessStatusMock.mockResolvedValue('unauthenticated');
+  });
+
+  it('responde 409 REFERENCIA_DUPLICADA al crear y editar una referencia existente', async () => {
+    getServerAccessStatusMock.mockResolvedValue('authorized');
+    const message =
+      'Ya existe un producto con ese nombre, talla y color. Para sumar unidades registra una compra en Proveedores.';
+    createProductMock.mockRejectedValue(new JsonDBError('REFERENCIA_DUPLICADA', message));
+    updateProductMock.mockRejectedValue(new JsonDBError('REFERENCIA_DUPLICADA', message));
+    const createPayload = {
+      name: 'Blusa',
+      category: 'ropa',
+      size: 'M',
+      color: 'Negro',
+      costPrice: 30000,
+      salePrice: 55000,
+      stock: 5,
+      minStock: 1,
+      active: true,
+    };
+    const updatePayload = {
+      id: 'product_1',
+      createdAt: '2026-10-28T00:00:00.000Z',
+      updatedAt: '2026-10-28T00:00:00.000Z',
+      code: 'KAT-000001',
+      codeType: 'internal',
+      variantGroupId: 'variant_1',
+      ...createPayload,
+    };
+
+    for (const response of [
+      await POST(request('http://localhost/api/data/products', 'POST', createPayload)),
+      await PUT(request('http://localhost/api/data/products', 'PUT', updatePayload)),
+    ]) {
+      const body = await response.json();
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({ code: 'REFERENCIA_DUPLICADA', error: message });
+    }
+  });
+
+  it('responde 409 PRODUCTO_CON_EXISTENCIAS al intentar desactivar con stock', async () => {
+    getServerAccessStatusMock.mockResolvedValue('authorized');
+    removeOrDeactivateProductMock.mockRejectedValue(
+      new JsonDBError(
+        'PRODUCTO_CON_EXISTENCIAS',
+        'Este producto todavía tiene unidades. Déjalo en 0 antes de desactivarlo.',
+      ),
+    );
+
+    const response = await DELETE(
+      request('http://localhost/api/data/products?id=product_1', 'DELETE'),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({
+      code: 'PRODUCTO_CON_EXISTENCIAS',
+      error: 'Este producto todavía tiene unidades. Déjalo en 0 antes de desactivarlo.',
+    });
   });
 
   it('impide leer productos sin sesión con 401', async () => {

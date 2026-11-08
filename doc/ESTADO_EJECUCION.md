@@ -24,6 +24,10 @@ Estado informado por la estudiante y sincronizado en el seguimiento. Las verific
 **Completado:**
 
 - Reportes.
+- Compras con total en pesos enteros no negativos.
+- Etiquetas de productos y variantes.
+- Inicio con saludo y reporte diario.
+- Nombre de presentación de la cuenta.
 - RN-14.
 - Paleta beige y rosa; modo oscuro neutro con rosa y blanco.
 - Vista de ventas en dos columnas y alta rápida de clientes.
@@ -42,6 +46,16 @@ Estado informado por la estudiante y sincronizado en el seguimiento. Las verific
 - Mantener las pantallas parejas: mismo estilo de encabezado y espacios, un solo botón principal por pantalla y mensajes amables cuando no haya datos.
 
 Los prompts P01–P09 conservan su estado formal hasta completar y verificar todos sus criterios; estos avances parciales no cierran por sí solos una fase.
+
+### Tarea 3.2 · Integridad de productos (RN-02 y RN-15)
+
+- Se agregó una migración nueva con `CHECK` para impedir la desactivación con stock positivo, índice único por nombre+talla+color normalizados y protección contra borrado de productos.
+- El servicio/API devuelve 409 `PRODUCTO_CON_EXISTENCIAS` al intentar desactivar con stock y 409 `REFERENCIA_DUPLICADA` al crear o editar una referencia repetida; también traduce el error 23505 del índice a ese mismo conflicto.
+- La interfaz deshabilita la desactivación mientras hay existencias, explica cómo resolverlo y permite reactivar productos inactivos.
+- `/scan` y `/purchases` enlazan al mismo formulario `/products`; ambos usan la validación compartida de la API al crear productos nuevos.
+- Se preparó el smoke test transaccional en `supabase/tests/`; se ajustaron los smoke tests existentes cuya preparación necesitaba representar productos inactivos con stock cero.
+- No se ejecutó SQL ni se consultó la base. La estudiante correrá primero su consulta de solo lectura para detectar productos inactivos con stock y referencias duplicadas.
+- En el plan `plan-implementacion-fases-ts-fullstack.md`, el encaje más cercano es Tarea 3.2 (módulo funcional); el documento no define una tarea específica para estas reglas del dominio.
 
 ### Tarea 3.5 · Inicio con saludo y reporte del día
 

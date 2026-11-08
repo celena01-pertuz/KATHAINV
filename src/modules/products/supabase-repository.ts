@@ -3,6 +3,11 @@ import { JsonDBError, query } from '@/lib/json-db';
 import { generateId, now } from '@/lib/utils';
 import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 import { normalizeProductCode } from './code-utils';
+import {
+  hasDuplicateProductReference,
+  PRODUCTO_CON_EXISTENCIAS_MESSAGE,
+  REFERENCIA_DUPLICADA_MESSAGE,
+} from './product-rules';
 import type { ProductCreateInput, ProductDeleteResult, ProductInput, ProductRecord } from './types';
 
 interface ProductRow {
@@ -26,6 +31,9 @@ interface ProductRow {
 
 interface DatabaseError {
   code?: string;
+  constraint?: string;
+  details?: string;
+  message?: string;
 }
 
 type DatabaseResult<T> =
@@ -78,13 +86,25 @@ function mapProductInput(input: ProductInput | ProductCreateInput) {
 }
 
 function throwDatabaseError(error: unknown): never {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    error.code === '23505'
-  ) {
-    throw new JsonDBError('DUPLICATE_CODE', 'Ya existe un producto con ese código.');
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const databaseError = error as DatabaseError;
+    const constraint = [
+      databaseError.constraint,
+      databaseError.message,
+      databaseError.details,
+    ].join(' ');
+    if (databaseError.code === '23505') {
+      if (constraint.includes('products_normalized_code_unique')) {
+        throw new JsonDBError('DUPLICATE_CODE', 'Ya existe un producto con ese código.');
+      }
+      throw new JsonDBError('REFERENCIA_DUPLICADA', REFERENCIA_DUPLICADA_MESSAGE);
+    }
+    if (
+      databaseError.code === '23514' &&
+      constraint.includes('products_active_requires_zero_stock')
+    ) {
+      throw new JsonDBError('PRODUCTO_CON_EXISTENCIAS', PRODUCTO_CON_EXISTENCIAS_MESSAGE);
+    }
   }
   throw new JsonDBError(
     'IO_ERROR',
@@ -147,6 +167,13 @@ export async function findProductByCode(code: string): Promise<ProductRecord | n
 }
 
 export async function createProduct(input: ProductCreateInput): Promise<ProductRecord> {
+  if (!input.active && input.stock > 0) {
+    throw new JsonDBError('PRODUCTO_CON_EXISTENCIAS', PRODUCTO_CON_EXISTENCIAS_MESSAGE);
+  }
+  if (hasDuplicateProductReference(await listProducts(), input)) {
+    throw new JsonDBError('REFERENCIA_DUPLICADA', REFERENCIA_DUPLICADA_MESSAGE);
+  }
+
   const client = createAdminSupabaseClient();
   const payload = mapProductInput(input);
   const row = await databaseOperation<ProductRow | null>(() =>
@@ -174,6 +201,9 @@ export async function updateProduct(
 ): Promise<ProductRecord | null> {
   const current = await getProduct(id);
   if (!current) return null;
+  if (!input.active && input.stock > 0) {
+    throw new JsonDBError('PRODUCTO_CON_EXISTENCIAS', PRODUCTO_CON_EXISTENCIAS_MESSAGE);
+  }
 
   if (
     normalizeProductCode(current.code) !== normalizeProductCode(input.code) &&
@@ -183,6 +213,9 @@ export async function updateProduct(
       'VALIDATION_ERROR',
       'No se puede cambiar el código de un producto que ya tiene movimientos.',
     );
+  }
+  if (hasDuplicateProductReference(await listProducts(), input, id)) {
+    throw new JsonDBError('REFERENCIA_DUPLICADA', REFERENCIA_DUPLICADA_MESSAGE);
   }
 
   const updatedAt = now();
@@ -197,22 +230,41 @@ export async function updateProduct(
     updated_at: updatedAt,
   };
   const client = createAdminSupabaseClient();
-  const row = await databaseOperation<ProductRow | null>(() =>
-    client.from('products').update(payload).eq('id', id).select('*').maybeSingle(),
-  );
+  let update = client.from('products').update(payload).eq('id', id);
+  if (!input.active) update = update.eq('stock', current.stock);
+  const row = await databaseOperation<ProductRow | null>(() => update.select('*').maybeSingle());
+  if (!row && !input.active) {
+    const latest = await getProduct(id);
+    if (latest && latest.stock !== current.stock) {
+      throw new JsonDBError('PRODUCTO_CON_EXISTENCIAS', PRODUCTO_CON_EXISTENCIAS_MESSAGE);
+    }
+  }
   return row ? mapProduct(row) : null;
 }
 
 export async function removeOrDeactivateProduct(id: string): Promise<ProductDeleteResult | null> {
+  const current = await getProduct(id);
+  if (!current) return null;
+  if (current.stock > 0) {
+    throw new JsonDBError('PRODUCTO_CON_EXISTENCIAS', PRODUCTO_CON_EXISTENCIAS_MESSAGE);
+  }
+
   const client = createAdminSupabaseClient();
   const row = await databaseOperation<ProductRow | null>(() =>
     client
       .from('products')
       .update({ active: false, updated_at: now() })
       .eq('id', id)
+      .eq('stock', 0)
       .select('*')
       .maybeSingle(),
   );
 
+  if (!row) {
+    const latest = await getProduct(id);
+    if (latest && latest.stock > 0) {
+      throw new JsonDBError('PRODUCTO_CON_EXISTENCIAS', PRODUCTO_CON_EXISTENCIAS_MESSAGE);
+    }
+  }
   return row ? { deleted: false, deactivated: true } : null;
 }
