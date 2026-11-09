@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 import { mapCreateSaleDatabaseError, SalesOperationError } from './errors';
 import { outOfStockProductSchema, saleResultSchema } from './schemas';
-import type { CreateSaleInput, SaleRecord, SaleResult } from './types';
+import type { CreateSaleInput, CreateSaleRpcInput, SaleRecord, SaleResult } from './types';
 
 interface SaleRow {
   id: number;
@@ -14,10 +14,7 @@ interface SaleRow {
   total: number;
   status: SaleRecord['status'];
   customer_id: string | null;
-  customer:
-    | { name: string; phone: string }
-    | { name: string; phone: string }[]
-    | null;
+  customer: { name: string; phone: string } | { name: string; phone: string }[] | null;
 }
 
 interface SaleRpcRow {
@@ -29,6 +26,56 @@ interface SaleRpcRow {
 const productStockRowSchema = outOfStockProductSchema.extend({
   stock: z.number().int().nonnegative(),
 });
+
+const productPriceRowSchema = z.object({
+  id: z.string().min(1),
+  sale_price: z.number().int().positive(),
+});
+
+export async function getSaleTotal(input: CreateSaleInput): Promise<number> {
+  const client = createAdminSupabaseClient();
+  const productIds = [...new Set(input.items.map((item) => item.productId))];
+  const { data, error } = await client
+    .from('products')
+    .select('id, sale_price')
+    .in('id', productIds);
+  if (error) {
+    throw new SalesOperationError(
+      'No se pudo calcular el total de la venta.',
+      500,
+      'SALE_TOTAL_READ_ERROR',
+    );
+  }
+
+  const parsedRows = z.array(productPriceRowSchema).safeParse(data);
+  if (!parsedRows.success || parsedRows.data.length !== productIds.length) {
+    throw new SalesOperationError(
+      'Uno o más productos ya no están disponibles.',
+      400,
+      'PRODUCT_UNAVAILABLE',
+    );
+  }
+  const prices = new Map(parsedRows.data.map((row) => [row.id, row.sale_price]));
+  const total = input.items.reduce((sum, item) => {
+    const price = prices.get(item.productId);
+    if (price === undefined) {
+      throw new SalesOperationError(
+        'Uno o más productos ya no están disponibles.',
+        400,
+        'PRODUCT_UNAVAILABLE',
+      );
+    }
+    return sum + price * item.quantity;
+  }, 0);
+  if (!Number.isSafeInteger(total) || total > 2147483647) {
+    throw new SalesOperationError(
+      'El total de la venta supera el límite permitido.',
+      400,
+      'SALE_TOTAL_EXCEEDED',
+    );
+  }
+  return total;
+}
 
 function mapSale(row: SaleRow): SaleRecord {
   return {
@@ -94,7 +141,7 @@ export async function listRecentSales(limit = 20): Promise<SaleRecord[]> {
 }
 
 export async function createSale(
-  input: CreateSaleInput,
+  input: CreateSaleRpcInput,
   createdBy: string,
 ): Promise<SaleResult> {
   const client = createAdminSupabaseClient();
@@ -105,8 +152,7 @@ export async function createSale(
       quantity: item.quantity,
     })),
     p_payment_type: input.paymentType,
-    p_initial_payment:
-      input.paymentType === 'cash' ? null : (input.initialPayment ?? 0),
+    p_initial_payment: input.paymentType === 'cash' ? null : (input.initialPayment ?? 0),
     p_payment_method: input.paymentMethod,
     p_request_key: input.requestKey,
     p_created_by: createdBy,

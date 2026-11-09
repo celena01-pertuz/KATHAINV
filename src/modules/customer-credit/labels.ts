@@ -1,0 +1,22 @@
+export const CUSTOMER_CREDIT_LABELS = {
+  balance: (amount: string) => `Saldo pendiente ${amount}`,
+  paidUp: 'Al día',
+  portfolio: 'Cartera',
+  totalReceivable: 'Total por cobrar',
+  creditSale: 'Venta a crédito',
+  credit: 'A crédito',
+  cash: 'De contado',
+  newCreditSale: 'Nueva venta a crédito',
+  registerPayment: 'Registrar abono',
+  sendReminder: 'Enviar recordatorio',
+  pendingDays: (days: number) => `Pendiente hace ${days} días`,
+  paysToday: 'Paga hoy',
+  pendingBalance: 'Saldo pendiente',
+  total: 'Total',
+  paymentExceedsTotal: 'El pago de hoy no puede superar el total de la venta.',
+  customerRequired: 'Selecciona un cliente para registrar una venta a crédito.',
+  paymentMethodRequired: 'Selecciona el medio de pago.',
+  paymentExceedsBalance: 'El abono no puede superar el saldo pendiente del cliente.',
+  reminderMessage: (name: string, amount: string) =>
+    `Hola ${name}, te escribimos de Katha Store. Tu saldo pendiente es de ${amount}. ¡Gracias por tu pago!`,
+} as const;

@@ -60,6 +60,8 @@ for (const table of [
   'sales',
   'sale_items',
   'sale_payments',
+  'customer_credit_payments',
+  'customer_credit_allocations',
   'sale_receipt_tokens',
   'suppliers',
   'purchases',
@@ -129,6 +131,37 @@ const rpcChecks = [
   {
     name: 'get_product_sales_report',
     payload: { p_from: '2000-01-01', p_to: '2000-01-01' },
+  },
+  {
+    name: 'get_customer_credit_overview',
+    payload: {},
+  },
+  {
+    name: 'get_customer_credit_detail',
+    payload: { p_customer_id: 'public-access-check' },
+  },
+  {
+    name: 'record_customer_credit_payment',
+    payload: {
+      p_customer_id: null,
+      p_amount: 0,
+      p_payment_method: null,
+      p_note: null,
+      p_request_key: null,
+      p_created_by: null,
+    },
+  },
+  {
+    name: 'void_customer_credit_payment',
+    payload: { p_payment_id: -1, p_reason: '', p_voided_by: '' },
+  },
+  {
+    name: 'protect_customer_credit_payment',
+    payload: {},
+  },
+  {
+    name: 'protect_customer_credit_allocation',
+    payload: {},
   },
 ];
 

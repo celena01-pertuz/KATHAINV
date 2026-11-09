@@ -12,6 +12,5 @@ describe('clave de solicitud de venta', () => {
 
     expect(createSaleRequestKey()).toBe('9c77dcc1-6f9c-4581-8cde-7c75d5bc9908');
     expect(randomUUID).toHaveBeenCalledOnce();
-
   });
 });

@@ -101,3 +101,13 @@ Los prompts P01–P09 conservan su estado formal hasta completar y verificar tod
 - Descuentos: se agregarán; regla pendiente de definir con el profesor. No modificar `create_sale`, comprobantes, fiados ni reportes antes de acordarla.
 - La estudiante confirmó que la migración de compras ya está aplicada y verificada en Supabase, y que pasó el smoke test. El script de acceso público se amplió para revisar `suppliers`, `purchases` y `create_purchase`; su ejecución dio 13 comprobaciones OK y ninguna fallida.
 - El último type-check, lint, test y build finalizaron correctamente; Vitest reportó 153 pruebas en 41 archivos.
+
+### Tarea 3.4 · Ventas a crédito, abonos y cartera de clientes · 2026-11-09
+
+- Se conservan las opciones visibles **“De contado”** y **“A crédito”**. El servidor resuelve el pago inicial y lo mapea a los tipos internos ya admitidos por `create_sale`; esa función no se modificó.
+- Los abonos se guardan en tablas nuevas (`customer_credit_payments` y `customer_credit_allocations`) para no cambiar `sale_payments`. Su reparto y saldo son transaccionales y calculados; el historial no permite editar ni borrar abonos y una anulación exige motivo.
+- Se agregó una consulta agregada de cartera, detalle por cliente, filtros, pagos y enlace manual de WhatsApp. `get_public_receipt` se reemplaza con `CREATE OR REPLACE` para incluir solo abonos activos.
+- La migración fue aplicada y verificada por la estudiante; su smoke test inicial pasó. Se amplió `customer_credit_payments_smoke_test.sql` con aserciones de doble anulación y comprobante, sin ejecutar el smoke test mejorado ni modificar la migración.
+- El comprobador de acceso público se ejecutó con el servidor apagado: 20 comprobaciones OK; 2 RPC de funciones trigger (`protect_customer_credit_payment` y `protect_customer_credit_allocation`) no concluyentes por respuesta HTTP 404. Incluye las dos tablas de abonos y las cuatro RPC de negocio de crédito.
+- El encargo asigna esta funcionalidad como Tarea 3.4. Nota: en `plan-implementacion-fases-ts-fullstack.md`, el encabezado existente “Tarea 3.4” corresponde a roles y permisos; no se renumeró ni alteró ese plan.
+- Verificación local con el servidor apagado: `npm.cmd run type-check` OK; `npm.cmd run lint` OK (aviso de obsolescencia de `next lint`, sin errores); `npm.cmd test` OK (60 archivos, 258 pruebas); `npm.cmd run build` OK. No se ejecutó SQL; no se hizo commit.

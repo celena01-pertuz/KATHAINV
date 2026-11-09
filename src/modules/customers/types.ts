@@ -1,9 +1,5 @@
 import type { z } from 'zod';
-import type {
-  customerCreateSchema,
-  customerStatusSchema,
-  customerUpdateSchema,
-} from './schemas';
+import type { customerCreateSchema, customerStatusSchema, customerUpdateSchema } from './schemas';
 
 export interface CustomerRecord {
   id: string;

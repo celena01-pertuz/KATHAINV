@@ -1,3 +1,5 @@
+import { CUSTOMER_CREDIT_LABELS } from '@/modules/customer-credit/labels';
+
 const databaseValidationMessages = new Set([
   'El tipo de pago no es válido.',
   'El pago inicial no es válido.',
@@ -15,6 +17,22 @@ const databaseValidationMessages = new Set([
   'El método de pago no es válido.',
   'La clave de solicitud es obligatoria.',
   'El correo de quien registra la venta es obligatorio.',
+]);
+
+const userFacingDatabaseMessages = new Map([
+  [
+    'Se necesita un cliente registrado para fiar o pagar parcialmente.',
+    CUSTOMER_CREDIT_LABELS.customerRequired,
+  ],
+  [
+    'Una venta fiada no puede incluir un pago inicial.',
+    'Revisa cuánto paga hoy en la venta a crédito.',
+  ],
+  [
+    'El pago parcial debe ser mayor que cero y menor que el total.',
+    'El pago de hoy debe ser mayor que cero y menor que el total.',
+  ],
+  ['El método de pago no es válido.', CUSTOMER_CREDIT_LABELS.paymentMethodRequired],
 ]);
 
 export class SalesOperationError extends Error {
@@ -38,7 +56,7 @@ export function mapCreateSaleDatabaseError(error: unknown): SalesOperationError 
     const message =
       typeof databaseError.message === 'string' &&
       databaseValidationMessages.has(databaseError.message)
-        ? databaseError.message
+        ? (userFacingDatabaseMessages.get(databaseError.message) ?? databaseError.message)
         : 'No se pudo validar la venta. Revisa los datos e inténtalo de nuevo.';
     return new SalesOperationError(message, 400, 'SALE_VALIDATION_ERROR');
   }

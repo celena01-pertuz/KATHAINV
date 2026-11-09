@@ -11,8 +11,9 @@ import type { CustomerRecord, CustomerSaveResult } from '@/modules/customers/typ
 import { normalizeProductCode } from '@/modules/products/code-utils';
 import type { ProductRecord } from '@/modules/products/types';
 import { buildWhatsAppUrl } from '@/modules/receipts/whatsapp';
+import { CUSTOMER_CREDIT_LABELS } from '@/modules/customer-credit/labels';
 import { createSaleRequestKey } from '../request-key';
-import { saleResultSchema } from '../schemas';
+import { saleResponseSchema } from '../schemas';
 import type { SalePaymentMethod, SalePaymentType, SaleRecord, SaleResult } from '../types';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState, LoadingState, RetryState } from '@/components/ui/PageStates';
@@ -47,6 +48,10 @@ function formatCOP(amount: number): string {
   }).format(amount);
 }
 
+function formatWholePesos(amount: number): string {
+  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount);
+}
+
 async function responseError(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as ApiResponse<unknown>;
@@ -72,7 +77,7 @@ export function SalesManager() {
   const [customerFormError, setCustomerFormError] = useState('');
   const [customerFormNotice, setCustomerFormNotice] = useState('');
   const [paymentType, setPaymentType] = useState<SalePaymentType>('cash');
-  const [initialPayment, setInitialPayment] = useState('');
+  const [initialPayment, setInitialPayment] = useState('0');
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod | ''>('');
   const [requestKey, setRequestKey] = useState(createSaleRequestKey);
   const [loadingSales, setLoadingSales] = useState(true);
@@ -96,6 +101,8 @@ export function SalesManager() {
     customerName: string | null;
     paymentType: SalePaymentType;
     total: number;
+    paidToday: number;
+    balance: number;
   } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -107,15 +114,18 @@ export function SalesManager() {
   const total = cart.reduce((sum, item) => sum + item.product.salePrice * item.quantity, 0);
   const summaryTotal = confirmedSale?.total ?? total;
   const summaryPaymentType = confirmedSale?.paymentType ?? paymentType;
-  const paidAmount = paymentType === 'cash' ? total : Number(initialPayment);
-  const customerRequired = paymentType !== 'cash';
+  const paidAmount =
+    paymentType === 'cash' ? total : Number(initialPayment.replace(/\D/g, '') || 0);
+  const customerRequired = paymentType === 'credit';
+  const summaryPaidToday = confirmedSale?.paidToday ?? paidAmount;
+  const summaryBalance = confirmedSale?.balance ?? Math.max(0, total - paidAmount);
   const canSell =
     cart.length > 0 &&
     !saving &&
     (!customerRequired || Boolean(selectedCustomer)) &&
-    (paymentType !== 'partial' || (paidAmount > 0 && paidAmount < total)) &&
-    (paymentType !== 'cash' || Boolean(paymentMethod)) &&
-    (paymentType !== 'partial' || Boolean(paymentMethod));
+    (paymentType !== 'credit' || paidAmount <= total) &&
+    (paymentType !== 'credit' || paidAmount === 0 || Boolean(paymentMethod)) &&
+    (paymentType !== 'cash' || Boolean(paymentMethod));
 
   const loadSales = useCallback(async () => {
     const response = await fetch('/api/data/sales?limit=20', { cache: 'no-store' });
@@ -149,6 +159,34 @@ export function SalesManager() {
     void loadRecentSales();
     return () => controller.abort();
   }, [salesRetryKey]);
+
+  useEffect(() => {
+    const customerId = new URLSearchParams(window.location.search).get('customerId');
+    if (!customerId) return;
+
+    const controller = new AbortController();
+    async function selectCreditCustomer() {
+      try {
+        const response = await fetch(
+          `/api/data/customers?customerId=${encodeURIComponent(customerId ?? '')}`,
+          { cache: 'no-store', signal: controller.signal },
+        );
+        if (!response.ok) return;
+        const body = (await response.json()) as ApiResponse<CustomerRecord>;
+        if (body.data?.active) {
+          setSelectedCustomer(body.data);
+          setPaymentType('credit');
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setError('No se pudo validar el cliente para esta venta.');
+        }
+      }
+    }
+
+    void selectCreditCustomer();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     activeRef.current = true;
@@ -374,8 +412,7 @@ export function SalesManager() {
             quantity,
           })),
           paymentType,
-          initialPayment:
-            paymentType === 'cash' ? null : paymentType === 'credit' ? 0 : Number(initialPayment),
+          initialPayment: paymentType === 'cash' ? null : paidAmount,
           paymentMethod: paymentMethod || null,
           requestKey,
         }),
@@ -383,7 +420,7 @@ export function SalesManager() {
 
       if (!response.ok) throw new Error(await responseError(response));
       const body = (await response.json()) as ApiResponse<unknown>;
-      const parsedResult = saleResultSchema.safeParse(body.data);
+      const parsedResult = saleResponseSchema.safeParse(body.data);
       if (!parsedResult.success) {
         throw new Error('No se pudo confirmar la venta. Inténtalo más tarde.');
       }
@@ -394,16 +431,28 @@ export function SalesManager() {
         saleNumber: result.saleNumber,
         customerPhone: selectedCustomer?.phone ?? null,
         customerName: selectedCustomer?.name ?? null,
-        paymentType,
+        paymentType: result.treatedAsCash ? 'cash' : paymentType,
         total: result.total,
+        paidToday:
+          result.treatedAsCash || paymentType === 'cash'
+            ? result.total
+            : Math.min(paidAmount, result.total),
+        balance:
+          result.treatedAsCash || paymentType === 'cash'
+            ? 0
+            : Math.max(0, result.total - paidAmount),
       });
       setOutOfStockProducts(result.outOfStock);
-      setNotice(`Venta ${result.saleNumber} registrada correctamente.`);
+      setNotice(
+        result.treatedAsCash
+          ? `Paga hoy es igual al total; la venta ${result.saleNumber} se registró de contado.`
+          : `Venta ${result.saleNumber} registrada correctamente.`,
+      );
       setCart([]);
       setSelectedCustomer(null);
       setCustomerSearch('');
       setPaymentType('cash');
-      setInitialPayment('');
+      setInitialPayment('0');
       setPaymentMethod('');
       setRequestKey(createSaleRequestKey());
       void loadSales().catch(() => {
@@ -571,7 +620,7 @@ export function SalesManager() {
     setCustomers([]);
     setSelectedCustomer(null);
     setPaymentType('cash');
-    setInitialPayment('');
+    setInitialPayment('0');
     setPaymentMethod('');
     setRequestKey(createSaleRequestKey());
     setConfirmedSale(null);
@@ -696,10 +745,7 @@ export function SalesManager() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 pb-[calc(10rem+env(safe-area-inset-bottom))] sm:px-8 lg:px-16 md:pb-8">
-      <PageHeader
-        title="Registrar venta"
-        description="Sigue los pasos para registrar una venta."
-      />
+      <PageHeader title="Registrar venta" description="Sigue los pasos para registrar una venta." />
 
       {error && (
         <p role="alert" className="mb-4 rounded-md bg-danger/10 p-3 text-sm">
@@ -890,7 +936,7 @@ export function SalesManager() {
                       setCustomerSearch('');
                       setCustomers([]);
                       setPaymentType('cash');
-                      setInitialPayment('');
+                      setInitialPayment('0');
                     }}
                     aria-pressed={paymentType === 'cash' && !selectedCustomer}
                     className="mt-3 min-h-11 w-full rounded-md border border-border px-3 text-left font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -912,7 +958,7 @@ export function SalesManager() {
               </Link>
               {customerRequired && !selectedCustomer && (
                 <p className="mt-2 text-sm text-danger">
-                  Elige un cliente para vender fiado o a pago parcial.
+                  {CUSTOMER_CREDIT_LABELS.customerRequired}
                 </p>
               )}
             </section>
@@ -1031,12 +1077,11 @@ export function SalesManager() {
               <h2 className="text-lg font-semibold">
                 <span className="mr-2 text-muted">3.</span>Forma de pago
               </h2>
-              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {(
                   [
-                    ['cash', 'Contado'],
-                    ['credit', 'Fiado'],
-                    ['partial', 'Pago parcial'],
+                    ['cash', CUSTOMER_CREDIT_LABELS.cash],
+                    ['credit', CUSTOMER_CREDIT_LABELS.credit],
                   ] as const
                 ).map(([value, label]) => (
                   <button
@@ -1044,7 +1089,8 @@ export function SalesManager() {
                     type="button"
                     aria-pressed={paymentType === value}
                     onClick={() => {
-                      setPaymentType(value as SalePaymentType);
+                      setPaymentType(value);
+                      if (value === 'credit') setInitialPayment('0');
                       setError('');
                     }}
                     className={`min-h-11 rounded-md border px-3 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
@@ -1058,27 +1104,41 @@ export function SalesManager() {
                 ))}
               </div>
 
-              {paymentType === 'partial' && (
+              {paymentType === 'credit' && (
                 <div className="mt-4">
                   <label htmlFor="sale-initial-payment" className="mb-2 block font-medium">
-                    Pago inicial en pesos
+                    ¿Cuánto paga hoy?
                   </label>
                   <input
                     id="sale-initial-payment"
-                    type="number"
-                    min="1"
-                    step="1"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={14}
                     value={initialPayment}
-                    onChange={(event) => setInitialPayment(event.target.value)}
+                    onChange={(event) => {
+                      const digits = event.target.value.replace(/\D/g, '').slice(0, 10);
+                      setInitialPayment(formatWholePesos(Number(digits || 0)));
+                    }}
                     className="min-h-11 w-full rounded-md border border-border bg-background px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   />
+                  {paidAmount > total && (
+                    <p role="alert" className="mt-2 text-sm text-danger">
+                      {CUSTOMER_CREDIT_LABELS.paymentExceedsTotal}
+                    </p>
+                  )}
+                  {total > 0 && paidAmount === total && (
+                    <p role="status" className="mt-2 text-sm text-warning">
+                      El pago de hoy cubre el total; la venta se registrará de contado.
+                    </p>
+                  )}
                 </div>
               )}
 
-              {(paymentType === 'cash' || paymentType === 'partial') && (
+              {(paymentType === 'cash' || (paymentType === 'credit' && paidAmount > 0)) && (
                 <div className="mt-4">
                   <label htmlFor="sale-payment-method" className="mb-2 block font-medium">
-                    Método de pago
+                    Medio de pago
                   </label>
                   <select
                     id="sale-payment-method"
@@ -1122,12 +1182,22 @@ export function SalesManager() {
               <p className="text-sm text-muted">Forma de pago</p>
               <p className="font-medium">
                 {summaryPaymentType === 'cash'
-                  ? 'Contado'
-                  : summaryPaymentType === 'credit'
-                    ? 'Fiado'
-                    : 'Pago parcial'}
+                  ? CUSTOMER_CREDIT_LABELS.cash
+                  : CUSTOMER_CREDIT_LABELS.credit}
               </p>
             </div>
+            {summaryPaymentType === 'credit' && (cart.length > 0 || confirmedSale) && (
+              <dl className="mt-3 space-y-2 border-b border-border pb-3 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt>{CUSTOMER_CREDIT_LABELS.paysToday}</dt>
+                  <dd className="font-semibold">{formatCOP(summaryPaidToday)}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>{CUSTOMER_CREDIT_LABELS.pendingBalance}</dt>
+                  <dd className="font-semibold">{formatCOP(summaryBalance)}</dd>
+                </div>
+              </dl>
+            )}
 
             {cart.length === 0 ? (
               <p className="mt-3 text-sm text-muted">Agrega productos para iniciar la venta.</p>
@@ -1202,9 +1272,7 @@ export function SalesManager() {
                   </p>
                 )}
                 {outOfStockProducts.length > 0 && (
-                  <div
-                    className="mt-3 rounded-md border border-warning/30 bg-warning/10 p-3 text-warning"
-                  >
+                  <div className="mt-3 rounded-md border border-warning/30 bg-warning/10 p-3 text-warning">
                     <p role="status" className="text-sm font-semibold">
                       {outOfStockProducts.length === 1 ? 'Se agotó: ' : 'Se agotaron: '}
                       {outOfStockProducts
@@ -1324,10 +1392,8 @@ export function SalesManager() {
                   }).format(new Date(sale.soldAt))}
                   {' · '}
                   {sale.paymentType === 'cash'
-                    ? 'Contado'
-                    : sale.paymentType === 'credit'
-                      ? 'Fiado'
-                      : 'Pago parcial'}
+                    ? CUSTOMER_CREDIT_LABELS.cash
+                    : CUSTOMER_CREDIT_LABELS.credit}
                   {' · '}
                   {sale.customerName ?? 'Sin cliente'}
                 </p>
@@ -1337,7 +1403,6 @@ export function SalesManager() {
           </ul>
         )}
       </section>
-
     </main>
   );
 }

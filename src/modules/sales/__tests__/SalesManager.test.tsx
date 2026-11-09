@@ -59,6 +59,13 @@ function setupSalesApi(
         duplicatePhone: customers.some((customer) => customer.phone === phone),
       });
     }
+    if (url.startsWith('/api/data/customers?customerId=')) {
+      const customerId = new URLSearchParams(url.split('?')[1]).get('customerId');
+      const customer = customers.find((entry) => entry.id === customerId);
+      return customer
+        ? jsonResponse(customer)
+        : jsonResponse({ error: 'No encontrado.' }, 404);
+    }
     if (url.startsWith('/api/data/customers?q=')) {
       return jsonResponse({ data: customers, total: customers.length });
     }
@@ -80,7 +87,13 @@ function setupSalesApi(
     if (url === '/api/data/sales' && init?.method === 'POST') {
       postBodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
       return jsonResponse(
-        { saleId: 1, saleNumber: 'V-000001', total: 12500, outOfStock },
+        {
+          saleId: 1,
+          saleNumber: 'V-000001',
+          total: 12500,
+          outOfStock,
+          treatedAsCash: false,
+        },
         201,
       );
     }
@@ -123,6 +136,37 @@ afterEach(() => {
 });
 
 describe('SalesManager interfaz', () => {
+  it('preselecciona el cliente activo de customerId y abre A crédito', async () => {
+    setupSalesApi([existingCustomer]);
+    window.history.replaceState({}, '', '/sales?customerId=customer_1');
+    render(<SalesManager />);
+
+    expect(await screen.findByText('Cliente existente · 573001234567')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'A crédito' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    window.history.replaceState({}, '', '/sales');
+  });
+
+  it('muestra paga hoy, saldo pendiente y total para una venta a crédito', async () => {
+    setupSalesApi([existingCustomer]);
+    window.history.replaceState({}, '', '/sales?customerId=customer_1');
+    render(<SalesManager />);
+    await screen.findByText('Cliente existente · 573001234567');
+    await addProductByCode();
+
+    fireEvent.change(screen.getByLabelText('¿Cuánto paga hoy?'), {
+      target: { value: '5000' },
+    });
+
+    expect(screen.getByText('Paga hoy')).toBeInTheDocument();
+    expect(screen.getByText('Saldo pendiente')).toBeInTheDocument();
+    expect(screen.getByText(/7\.500/)).toBeInTheDocument();
+    expect(screen.getByTestId('sale-total').textContent?.replace(/\D/g, '')).toBe('12500');
+    window.history.replaceState({}, '', '/sales');
+  });
+
   it('muestra el mensaje vacío y una sola acción principal para registrar la venta', async () => {
     setupSalesApi();
     const { container } = render(<SalesManager />);
@@ -172,7 +216,7 @@ describe('SalesManager interfaz', () => {
     setupSalesApi();
     render(<SalesManager />);
     await addProductByCode();
-    fireEvent.change(screen.getByLabelText('Método de pago'), {
+    fireEvent.change(screen.getByLabelText('Medio de pago'), {
       target: { value: 'efectivo' },
     });
 
@@ -195,7 +239,7 @@ describe('SalesManager interfaz', () => {
     ]);
     render(<SalesManager />);
     await addProductByCode();
-    fireEvent.change(screen.getByLabelText('Método de pago'), {
+    fireEvent.change(screen.getByLabelText('Medio de pago'), {
       target: { value: 'efectivo' },
     });
     fireEvent.submit(screen.getByTestId('sale-form'));
@@ -223,7 +267,7 @@ describe('SalesManager interfaz', () => {
     ]);
     render(<SalesManager />);
     await addProductByCode();
-    fireEvent.change(screen.getByLabelText('Método de pago'), {
+    fireEvent.change(screen.getByLabelText('Medio de pago'), {
       target: { value: 'efectivo' },
     });
     fireEvent.submit(screen.getByTestId('sale-form'));
@@ -245,7 +289,7 @@ describe('SalesManager interfaz', () => {
     ]);
     render(<SalesManager />);
     await addProductByCode();
-    fireEvent.change(screen.getByLabelText('Método de pago'), {
+    fireEvent.change(screen.getByLabelText('Medio de pago'), {
       target: { value: 'efectivo' },
     });
     fireEvent.submit(screen.getByTestId('sale-form'));
@@ -315,8 +359,8 @@ describe('SalesManager interfaz', () => {
     fireEvent.change(screen.getByLabelText('Cantidad de Camisa de prueba'), {
       target: { value: '2' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Pago parcial' }));
-    fireEvent.change(screen.getByLabelText('Pago inicial en pesos'), {
+    fireEvent.click(screen.getByRole('button', { name: 'A crédito' }));
+    fireEvent.change(screen.getByLabelText('¿Cuánto paga hoy?'), {
       target: { value: '5000' },
     });
     const form = openNewCustomerForm();
@@ -326,8 +370,8 @@ describe('SalesManager interfaz', () => {
 
     await screen.findByText('Ana Prueba · 573001234567');
     expect(screen.getByLabelText('Cantidad de Camisa de prueba')).toHaveValue(2);
-    expect(screen.getByLabelText('Pago inicial en pesos')).toHaveValue(5000);
-    expect(screen.getByRole('button', { name: 'Pago parcial' })).toHaveAttribute(
+    expect(screen.getByLabelText('¿Cuánto paga hoy?')).toHaveValue('5.000');
+    expect(screen.getByRole('button', { name: 'A crédito' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -373,7 +417,13 @@ describe('SalesManager request_key', () => {
         postCount += 1;
         if (postCount === 1) throw new TypeError('Network unavailable');
         return jsonResponse(
-          { saleId: 1, saleNumber: 'V-000001', total: 12500, outOfStock: [] },
+          {
+            saleId: 1,
+            saleNumber: 'V-000001',
+            total: 12500,
+            outOfStock: [],
+            treatedAsCash: false,
+          },
           201,
         );
       }
@@ -387,7 +437,7 @@ describe('SalesManager request_key', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Agregar por código' }));
     await screen.findByText('Camisa de prueba');
-    fireEvent.change(screen.getByLabelText('Método de pago'), {
+    fireEvent.change(screen.getByLabelText('Medio de pago'), {
       target: { value: 'efectivo' },
     });
 

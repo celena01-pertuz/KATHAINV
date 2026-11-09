@@ -11,6 +11,7 @@ import {
   changeCustomerStatus,
   createCustomer,
   customerPhoneAlreadyExists,
+  getCustomerById,
   listCustomers,
   updateCustomer,
 } from '@/modules/customers/service';
@@ -76,6 +77,17 @@ export async function GET(request: NextRequest) {
       return apiSuccess({
         duplicatePhone: await customerPhoneAlreadyExists(parsedPhone.data, excludeId),
       });
+    }
+
+    const customerId = params.get('customerId');
+    if (customerId !== null) {
+      if (!customerId.trim()) {
+        return validationError(['El cliente solicitado no es válido.']);
+      }
+      const customer = await getCustomerById(customerId);
+      return customer
+        ? apiSuccess(customer)
+        : apiError('No se encontró el cliente indicado.', 'NOT_FOUND', 404);
     }
 
     const parsedSearch = customerSearchSchema.safeParse(params.get('q') ?? '');

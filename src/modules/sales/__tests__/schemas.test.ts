@@ -13,39 +13,40 @@ const validSale = {
 describe('validación de ventas', () => {
   it('acepta contado sin cliente y exige clave UUID', () => {
     expect(createSaleSchema.safeParse(validSale).success).toBe(true);
-    expect(
-      createSaleSchema.safeParse({ ...validSale, requestKey: 'clave-no-uuid' }).success,
-    ).toBe(false);
+    expect(createSaleSchema.safeParse({ ...validSale, requestKey: 'clave-no-uuid' }).success).toBe(
+      false,
+    );
   });
 
-  it('exige cliente y pago inicial positivo para pago parcial', () => {
+  it('exige cliente para ventas a crédito y acepta pago inicial en cero', () => {
     expect(
       createSaleSchema.safeParse({
         ...validSale,
         customerId: 'customer_1',
-        paymentType: 'partial',
-        initialPayment: 100,
+        paymentType: 'credit',
+        initialPayment: 0,
+        paymentMethod: null,
       }).success,
     ).toBe(true);
     expect(
       createSaleSchema.safeParse({
         ...validSale,
         customerId: null,
-        paymentType: 'partial',
+        paymentType: 'credit',
         initialPayment: 0,
       }).success,
     ).toBe(false);
   });
 
-  it('rechaza fiado sin cliente o con pago inicial', () => {
+  it('acepta un abono inicial a crédito y exige medio si paga hoy', () => {
     expect(
       createSaleSchema.safeParse({
         ...validSale,
+        customerId: 'customer_1',
         paymentType: 'credit',
-        initialPayment: 0,
-        paymentMethod: null,
+        initialPayment: 100,
       }).success,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       createSaleSchema.safeParse({
         ...validSale,
@@ -55,6 +56,12 @@ describe('validación de ventas', () => {
         paymentMethod: null,
       }).success,
     ).toBe(false);
+  });
+
+  it('rechaza un tipo de pago que no esté en las dos opciones visibles', () => {
+    expect(createSaleSchema.safeParse({ ...validSale, paymentType: 'partial' }).success).toBe(
+      false,
+    );
   });
 
   it('rechaza cantidades no enteras o no positivas', () => {

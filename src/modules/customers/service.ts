@@ -2,6 +2,7 @@ import 'server-only';
 
 import {
   createCustomer as insertCustomer,
+  getCustomerById as queryCustomerById,
   hasDuplicateCustomerPhone,
   listCustomers as queryCustomers,
   setCustomerActive,
@@ -11,6 +12,10 @@ import type { CustomerCreateInput, CustomerSaveResult, CustomerUpdateInput } fro
 
 export async function listCustomers(search = '') {
   return queryCustomers(search);
+}
+
+export async function getCustomerById(id: string) {
+  return queryCustomerById(id);
 }
 
 export async function customerPhoneAlreadyExists(phone: string, excludeId?: string) {

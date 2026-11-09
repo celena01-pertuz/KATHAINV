@@ -2,17 +2,20 @@ import { z } from 'zod';
 import { CUSTOMER_DATA_NOTICE_VERSION } from './consent-notice';
 import { normalizeColombianPhone } from './phone-utils';
 
-export const customerPhoneSchema = z.string().trim().transform((value, context) => {
-  const normalized = normalizeColombianPhone(value);
-  if (!normalized) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Ingresa un celular colombiano válido de 10 dígitos.',
-    });
-    return z.NEVER;
-  }
-  return normalized;
-});
+export const customerPhoneSchema = z
+  .string()
+  .trim()
+  .transform((value, context) => {
+    const normalized = normalizeColombianPhone(value);
+    if (!normalized) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Ingresa un celular colombiano válido de 10 dígitos.',
+      });
+      return z.NEVER;
+    }
+    return normalized;
+  });
 
 const customerFieldsSchema = z.object({
   name: z

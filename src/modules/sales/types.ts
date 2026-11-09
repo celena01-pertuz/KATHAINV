@@ -1,5 +1,10 @@
 import type { z } from 'zod';
-import type { createSaleSchema, outOfStockProductSchema, saleResultSchema } from './schemas';
+import type {
+  createSaleSchema,
+  outOfStockProductSchema,
+  saleResponseSchema,
+  saleResultSchema,
+} from './schemas';
 
 export type SalePaymentType = 'cash' | 'credit' | 'partial';
 export type SalePaymentMethod = 'efectivo' | 'transferencia' | 'nequi' | 'tarjeta';
@@ -17,5 +22,9 @@ export interface SaleRecord {
 }
 
 export type CreateSaleInput = z.infer<typeof createSaleSchema>;
+export type CreateSaleRpcInput = Omit<CreateSaleInput, 'paymentType'> & {
+  paymentType: SalePaymentType;
+};
 export type OutOfStockProduct = z.infer<typeof outOfStockProductSchema>;
 export type SaleResult = z.infer<typeof saleResultSchema>;
+export type SaleResponse = z.infer<typeof saleResponseSchema>;

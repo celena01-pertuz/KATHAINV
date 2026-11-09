@@ -46,9 +46,7 @@ function mapCustomer(row: CustomerRow): CustomerRecord {
   };
 }
 
-async function databaseOperation<T>(
-  operation: () => PromiseLike<DatabaseResult<T>>,
-): Promise<T> {
+async function databaseOperation<T>(operation: () => PromiseLike<DatabaseResult<T>>): Promise<T> {
   try {
     const result = await operation();
     if (result.error) throw new Error();
@@ -102,6 +100,14 @@ export async function listCustomers(search = ''): Promise<CustomerRecord[]> {
   return [...uniqueRows.values()]
     .map(mapCustomer)
     .sort((left, right) => left.name.localeCompare(right.name, 'es-CO'));
+}
+
+export async function getCustomerById(id: string): Promise<CustomerRecord | null> {
+  const client = createAdminSupabaseClient();
+  const row = await databaseOperation<CustomerRow | null>(() =>
+    client.from('customers').select('*').eq('id', id).maybeSingle(),
+  );
+  return row ? mapCustomer(row) : null;
 }
 
 export async function hasDuplicateCustomerPhone(
@@ -167,12 +173,7 @@ export async function setCustomerActive(
 ): Promise<CustomerRecord | null> {
   const client = createAdminSupabaseClient();
   const row = await databaseOperation<CustomerRow | null>(() =>
-    client
-      .from('customers')
-      .update({ active })
-      .eq('id', id)
-      .select('*')
-      .maybeSingle(),
+    client.from('customers').update({ active }).eq('id', id).select('*').maybeSingle(),
   );
   return row ? mapCustomer(row) : null;
 }

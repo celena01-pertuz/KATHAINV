@@ -21,10 +21,7 @@ const createSaleInput = {
   requestKey: '9c77dcc1-6f9c-4581-8cde-7c75d5bc9908',
 };
 
-function prepareProductStockRead(
-  data: unknown,
-  error: { message: string } | null = null,
-) {
+function prepareProductStockRead(data: unknown, error: { message: string } | null = null) {
   const inMock = vi.fn().mockResolvedValue({ data, error });
   const selectMock = vi.fn().mockReturnValue({ in: inMock });
   fromMock.mockReturnValue({ select: selectMock });

@@ -56,16 +56,16 @@ Los esquemas Zod van en `data/_schema/` y se registran en `data/_schema/registry
 
 Requisitos para las tareas 3.3 y 3.4:
 
-- En cada venta se elige el tipo de pago: **contado**, **fiado** o **pago parcial**. El pago parcial registra el monto pagado. Para fiar o registrar un pago parcial, el cliente debe estar registrado.
-- Un **abono** es un pago que el cliente hace después para reducir su deuda. Se registra por cliente y el sistema lo reparte automáticamente entre sus ventas pendientes, empezando por la deuda más antigua. Cada abono guarda fecha, monto y una nota opcional. El monto no puede superar la deuda total pendiente. El reparto bloquea las filas necesarias para que dos abonos simultáneos no excedan el saldo; al anular un abono se revierte su reparto, pero no se borra el registro.
-- El saldo del cliente se calcula a partir de las ventas fiadas menos los abonos; nunca se escribe ni se ajusta a mano.
+- En cada venta la interfaz ofrece **“De contado”** o **“A crédito”**. El servidor conserva los valores internos `cash`, `credit` y `partial`: en una venta a crédito, pago hoy cero se mapea a `credit`, un monto menor al total a `partial` y el total exacto a `cash`. Para vender a crédito el cliente debe estar registrado y activo.
+- Un **abono** es un pago posterior que se registra por cliente y se reparte automáticamente entre sus ventas activas con saldo, de la más antigua a la más nueva. Cada abono conserva fecha, monto, medio de pago y una nota opcional. El monto no puede superar la deuda total pendiente. La base serializa abonos simultáneos del mismo cliente; al anular un abono con motivo, se restaura su saldo sin borrar el registro.
+- El saldo del cliente se calcula a partir del total de sus ventas menos los pagos iniciales y abonos no anulados; nunca se escribe ni se ajusta a mano.
 - La tabla de ventas conserva desde su creación el estado activa/anulada y los datos de auditoría de anulación. La función que anula una venta y devuelve su stock se implementará en una tarea posterior.
 - Los pagos registran su forma: efectivo, transferencia/Nequi o tarjeta.
 - El teléfono del cliente se guarda normalizado como `57` seguido del número, solo dígitos. Si ya existe otro cliente con ese teléfono, se muestra un aviso sin impedir el registro.
 - No se registran nombres, teléfonos ni documentos de clientes en logs ni en mensajes de error.
-- La ficha del cliente muestra **“Al día”** o **“Debe $X”**, junto con el detalle de ventas fiadas, abonos y saldo.
-- Hay un listado de **“Quién me debe”**, ordenado de mayor a menor deuda.
-- El botón **“Recordar por WhatsApp”** abre un enlace `wa.me` con un mensaje amable que incluye el saldo. La persona envía el mensaje manualmente; no hay envío automático.
+- La ficha del cliente muestra **“Al día”** o **“Saldo pendiente $X”**, junto con el detalle de ventas a crédito, abonos y saldo.
+- La cartera permite filtrar clientes con saldo y al día, y muestra el total por cobrar.
+- El botón **“Enviar recordatorio”** abre un enlace `wa.me` con un mensaje amable que incluye el saldo. La persona envía el mensaje manualmente; no hay envío automático.
 - Cada venta puede tener un comprobante público revocable. El servidor guarda solo el hash de un token aleatorio; la página `/receipt/[token]` no muestra datos personales, no se indexa ni se almacena en caché. El envío del enlace por WhatsApp siempre requiere confirmación manual.
 - Los datos de clientes y deudas solo son visibles para los correos incluidos en `ALLOWED_EMAILS`.
 - Antes de usar el sistema con deudas reales, los datos deben guardarse en Supabase (Fase 4), porque Vercel no permite escribir en los archivos JSON.

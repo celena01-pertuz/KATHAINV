@@ -4,6 +4,11 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { CUSTOMER_DATA_NOTICE, CUSTOMER_DATA_NOTICE_VERSION } from '../consent-notice';
 import { normalizeColombianPhone } from '../phone-utils';
 import type { CustomerRecord, CustomerSaveResult } from '../types';
+import { CUSTOMER_CREDIT_LABELS } from '@/modules/customer-credit/labels';
+import { daysSinceBogotaDate } from '@/modules/customer-credit/date-utils';
+import { CustomerCreditPanel } from '@/modules/customer-credit/components/CustomerCreditPanel';
+import { customerCreditOverviewResponseSchema } from '@/modules/customer-credit/schemas';
+import type { CustomerCreditOverview } from '@/modules/customer-credit/types';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState, LoadingState, RetryState } from '@/components/ui/PageStates';
 
@@ -29,6 +34,14 @@ function formatAuthorizationDate(value: string): string {
   }).format(new Date(value));
 }
 
+function formatCOP(amount: number): string {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 export function CustomerManager() {
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [search, setSearch] = useState('');
@@ -42,6 +55,19 @@ export function CustomerManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [creditOverview, setCreditOverview] = useState<CustomerCreditOverview[]>([]);
+  const [creditLoading, setCreditLoading] = useState(true);
+  const [creditLoadError, setCreditLoadError] = useState('');
+  const [creditFilter, setCreditFilter] = useState<'all' | 'balance' | 'paid'>('all');
+
+  const creditByCustomer = new Map(creditOverview.map((entry) => [entry.customerId, entry]));
+  const totalReceivable = creditOverview.reduce((sum, entry) => sum + entry.balance, 0);
+  const visibleCustomers = customers.filter((customer) => {
+    if (creditLoading || creditLoadError) return true;
+    const balance = creditByCustomer.get(customer.id)?.balance;
+    if (balance === undefined) return true;
+    return creditFilter === 'all' || (creditFilter === 'balance' ? balance > 0 : balance === 0);
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -77,6 +103,38 @@ export function CustomerManager() {
     };
   }, [search, refreshKey]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadCreditOverview() {
+      setCreditLoading(true);
+      setCreditLoadError('');
+      try {
+        const response = await fetch('/api/data/customer-credit', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(await readApiError(response));
+        const body = (await response.json()) as ApiResponse<unknown>;
+        const parsed = customerCreditOverviewResponseSchema.safeParse(body.data);
+        if (!parsed.success) throw new Error('La cartera recibida no tiene un formato válido.');
+        setCreditOverview(parsed.data);
+      } catch (loadError) {
+        if (!controller.signal.aborted) {
+          setCreditLoadError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'No se pudo cargar la cartera de clientes.',
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) setCreditLoading(false);
+      }
+    }
+
+    void loadCreditOverview();
+    return () => controller.abort();
+  }, [refreshKey]);
+
   function startCreate() {
     setSelectedCustomer(null);
     setEditingCustomer(null);
@@ -107,9 +165,7 @@ export function CustomerManager() {
       setDuplicatePhone(body.data.duplicatePhone);
     } catch (phoneError) {
       setError(
-        phoneError instanceof Error
-          ? phoneError.message
-          : 'No se pudo revisar el teléfono.',
+        phoneError instanceof Error ? phoneError.message : 'No se pudo revisar el teléfono.',
       );
     }
   }
@@ -158,9 +214,7 @@ export function CustomerManager() {
       );
       setRefreshKey((key) => key + 1);
     } catch (saveError) {
-      setError(
-        saveError instanceof Error ? saveError.message : 'No se pudo guardar el cliente.',
-      );
+      setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar el cliente.');
     } finally {
       setSaving(false);
     }
@@ -226,61 +280,130 @@ export function CustomerManager() {
             />
           </label>
 
+          <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
+            <h2 className="font-semibold">{CUSTOMER_CREDIT_LABELS.portfolio}</h2>
+            <p className="mt-1 text-warning">
+              {CUSTOMER_CREDIT_LABELS.totalReceivable}:{' '}
+              {creditLoading
+                ? 'Cargando…'
+                : creditLoadError
+                  ? 'No disponible'
+                  : formatCOP(totalReceivable)}
+            </p>
+            {creditLoadError && (
+              <p role="alert" className="mt-2 text-sm text-danger">
+                {creditLoadError}
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2" aria-label="Filtros de cartera">
+              {(
+                [
+                  ['all', 'Todos'],
+                  ['balance', 'Con saldo'],
+                  ['paid', 'Al día'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={creditFilter === value}
+                  onClick={() => setCreditFilter(value)}
+                  className={`min-h-11 rounded-md border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                    creditFilter === value
+                      ? 'border-primary font-semibold text-primary'
+                      : 'border-border'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
+
           {loadError ? (
             <RetryState message={loadError} onRetry={() => setRefreshKey((key) => key + 1)} />
           ) : loading ? (
             <LoadingState label="Cargando clientes" />
-          ) : customers.length === 0 ? (
+          ) : visibleCustomers.length === 0 ? (
             <EmptyState>
               {search.trim()
                 ? 'No encontramos clientes con esa búsqueda.'
-                : 'Todavía no hay clientes. Usa “Nuevo cliente” para registrar el primero.'}
+                : customers.length === 0
+                  ? 'Todavía no hay clientes. Usa “Nuevo cliente” para registrar el primero.'
+                  : 'No hay clientes que coincidan con este filtro de cartera.'}
             </EmptyState>
           ) : (
             <ul className="space-y-4">
-              {customers.map((customer) => (
-                <li
-                  key={customer.id}
-                  className="rounded-lg border border-border bg-surface p-4 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="break-words font-semibold">{customer.name}</h2>
-                      <p className="mt-1 break-all text-sm text-muted">{customer.phone}</p>
+              {visibleCustomers.map((customer) => {
+                const balance = creditByCustomer.get(customer.id)?.balance;
+                const oldestDebtAt = creditByCustomer.get(customer.id)?.oldestDebtAt;
+                const pendingDays =
+                  balance !== undefined && balance > 0 && oldestDebtAt
+                    ? daysSinceBogotaDate(oldestDebtAt)
+                    : null;
+                return (
+                  <li
+                    key={customer.id}
+                    className="rounded-lg border border-border bg-surface p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="break-words font-semibold">{customer.name}</h2>
+                        <p className="mt-1 break-all text-sm text-muted">{customer.phone}</p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
+                          customer.active
+                            ? 'bg-success/10 text-success'
+                            : 'bg-background text-muted'
+                        }`}
+                      >
+                        {customer.active ? 'Activo' : 'Inactivo'}
+                      </span>
                     </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
-                        customer.active ? 'bg-success/10 text-success' : 'bg-background text-muted'
-                      }`}
+                    <p
+                      className={`mt-2 text-sm font-semibold ${balance ? 'text-warning' : 'text-muted'}`}
                     >
-                      {customer.active ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      onClick={() => setSelectedCustomer(customer)}
-                    >
-                      Ver detalle
-                    </button>
-                    <button
-                      type="button"
-                      className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      onClick={() => startEdit(customer)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      onClick={() => void toggleCustomer(customer)}
-                    >
-                      {customer.active ? 'Desactivar' : 'Reactivar'}
-                    </button>
-                  </div>
-                </li>
-              ))}
+                      {balance === undefined
+                        ? 'Saldo no disponible'
+                        : balance > 0
+                          ? CUSTOMER_CREDIT_LABELS.balance(formatCOP(balance))
+                          : CUSTOMER_CREDIT_LABELS.paidUp}
+                      {!customer.active && balance !== undefined && balance > 0 && (
+                        <span className="ml-2 font-normal text-muted">(Inactivo)</span>
+                      )}
+                    </p>
+                    {balance !== undefined && balance > 0 && pendingDays !== null && (
+                      <p className="mt-1 text-sm text-warning">
+                        {CUSTOMER_CREDIT_LABELS.pendingDays(pendingDays)}
+                      </p>
+                    )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        onClick={() => setSelectedCustomer(customer)}
+                      >
+                        Ver detalle
+                      </button>
+                      <button
+                        type="button"
+                        className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        onClick={() => startEdit(customer)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        onClick={() => void toggleCustomer(customer)}
+                      >
+                        {customer.active ? 'Desactivar' : 'Reactivar'}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
@@ -341,6 +464,13 @@ export function CustomerManager() {
                 >
                   {selectedCustomer.active ? 'Desactivar' : 'Reactivar'}
                 </button>
+              </div>
+              <div className="mt-4">
+                <CustomerCreditPanel
+                  customer={selectedCustomer}
+                  overview={creditByCustomer.get(selectedCustomer.id)}
+                  onChanged={() => setRefreshKey((key) => key + 1)}
+                />
               </div>
             </section>
           ) : (
@@ -425,7 +555,9 @@ function CustomerForm({
 
       {!editing && (
         <fieldset className="grid gap-3 rounded-md border border-border p-3 sm:col-span-2">
-          <legend className="px-1 text-sm font-semibold">Autorización de tratamiento de datos</legend>
+          <legend className="px-1 text-sm font-semibold">
+            Autorización de tratamiento de datos
+          </legend>
           <p className="text-sm">{CUSTOMER_DATA_NOTICE}</p>
           <p className="text-xs text-muted">Versión del aviso: {CUSTOMER_DATA_NOTICE_VERSION}</p>
           <label className="flex min-h-11 items-center gap-3 py-2 text-sm">

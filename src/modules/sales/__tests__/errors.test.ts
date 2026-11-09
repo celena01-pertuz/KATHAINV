@@ -32,4 +32,18 @@ describe('mapeo de errores de ventas', () => {
     expect(error.status).toBe(400);
     expect(error.message).not.toContain('detalle sensible');
   });
+
+  it('traduce errores internos de fiado y pago parcial al vocabulario visible actual', () => {
+    const creditError = mapCreateSaleDatabaseError({
+      code: 'P0001',
+      message: 'Se necesita un cliente registrado para fiar o pagar parcialmente.',
+    });
+    const partialError = mapCreateSaleDatabaseError({
+      code: 'P0001',
+      message: 'El pago parcial debe ser mayor que cero y menor que el total.',
+    });
+
+    expect(creditError.message).toBe('Selecciona un cliente para registrar una venta a crédito.');
+    expect(partialError.message).toBe('El pago de hoy debe ser mayor que cero y menor que el total.');
+  });
 });
