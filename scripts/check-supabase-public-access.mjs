@@ -69,7 +69,8 @@ for (const table of [
 ]) {
   let response;
   try {
-    const endpoint = new URL(`/rest/v1/${table}?select=id&limit=1`, baseUrl);
+    const primaryKey = table === 'sale_void_audits' ? 'sale_id' : 'id';
+    const endpoint = new URL(`/rest/v1/${table}?select=${primaryKey}&limit=1`, baseUrl);
     response = await fetch(endpoint, {
       headers: {
         apikey: key,
@@ -164,16 +165,10 @@ const rpcChecks = [
     name: 'void_customer_credit_payment',
     payload: { p_payment_id: -1, p_reason: '', p_voided_by: '' },
   },
-  {
-    name: 'protect_customer_credit_payment',
-    payload: {},
-  },
-  {
-    name: 'protect_customer_credit_allocation',
-    payload: {},
-  },
 ];
 
+// Trigger functions are not exposed through PostgREST RPC; verify their
+// permissions and attachment with SQL migration checks instead.
 for (const { name, payload } of rpcChecks) {
   let response;
   try {
