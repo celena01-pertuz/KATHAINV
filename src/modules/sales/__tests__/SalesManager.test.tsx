@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CustomerRecord } from '@/modules/customers/types';
+import type { SaleRecord } from '../types';
 import { SalesManager } from '../components/SalesManager';
 
 const product = {
@@ -44,14 +45,29 @@ function jsonResponse(data: unknown, status = 200) {
 function setupSalesApi(
   initialCustomers: CustomerRecord[] = [],
   outOfStock: { id: string; code: string; name: string; size: string; color: string }[] = [],
+  recentSales: SaleRecord[] = [],
 ) {
   const postBodies: Record<string, unknown>[] = [];
+  const voidBodies: Record<string, unknown>[] = [];
   const customerPostBodies: Record<string, unknown>[] = [];
   const customers = [...initialCustomers];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.startsWith('/api/data/sales') && init?.method !== 'POST') {
-      return jsonResponse({ data: [], total: 0 });
+      return jsonResponse({ data: recentSales, total: recentSales.length });
+    }
+    if (url.endsWith('/void') && init?.method === 'POST') {
+      voidBodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+      const saleId = Number(url.split('/').slice(-2)[0]);
+      return jsonResponse({
+        saleId,
+        voidedAt: '2026-11-09T12:00:00.000Z',
+        voidedBy: 'owner@example.test',
+        voidReason: String(voidBodies.at(-1)?.reason ?? ''),
+        reactivatedProducts: [
+          { id: product.id, code: product.code, name: product.name },
+        ],
+      });
     }
     if (url.startsWith('/api/data/customers?phone=')) {
       const phone = new URLSearchParams(url.split('?')[1]).get('phone');
@@ -101,7 +117,7 @@ function setupSalesApi(
   });
   vi.stubGlobal('crypto', { randomUUID: vi.fn(() => '9c77dcc1-6f9c-4581-8cde-7c75d5bc9908') });
   vi.stubGlobal('fetch', fetchMock);
-  return { fetchMock, postBodies, customerPostBodies };
+  return { fetchMock, postBodies, voidBodies, customerPostBodies };
 }
 
 async function addProductByCode() {
@@ -174,6 +190,44 @@ describe('SalesManager interfaz', () => {
     expect(await screen.findByText('Todavía no hay ventas.')).toBeInTheDocument();
     expect(container.querySelectorAll('[data-primary-action]')).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: 'Registrar venta' })).toHaveLength(1);
+  });
+
+  it('pide motivo y confirmación, avisa de devolución manual y conserva la venta anulada', async () => {
+    const sale: SaleRecord = {
+      id: 9,
+      saleNumber: 'V-000009',
+      soldAt: '2026-11-09T10:00:00.000Z',
+      paymentType: 'cash',
+      total: 12500,
+      status: 'active',
+      voidedAt: null,
+      voidedBy: null,
+      voidReason: null,
+      customerId: null,
+      customerName: null,
+      customerPhone: null,
+    };
+    const { voidBodies } = setupSalesApi([], [], [sale]);
+    render(<SalesManager />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Anular venta' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'La devolución del dinero a la clienta se hace manualmente, fuera del sistema.',
+    );
+    fireEvent.change(screen.getByLabelText(/Motivo \(obligatorio/), {
+      target: { value: 'Devolución solicitada' },
+    });
+    fireEvent.click(screen.getByLabelText('Confirmo que deseo anular esta venta'));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar anulación' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'La venta V-000009 fue anulada y el stock fue devuelto. Se reactivó: Camisa de prueba.',
+    );
+    expect(voidBodies).toEqual([{ reason: 'Devolución solicitada' }]);
+    expect(screen.getByText('Anulada')).toBeInTheDocument();
+    expect(screen.getByText(/Motivo: Devolución solicitada/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Anular venta' })).not.toBeInTheDocument();
   });
 
   it('calcula el total con los precios de los productos agregados', async () => {

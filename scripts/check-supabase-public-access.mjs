@@ -60,6 +60,7 @@ for (const table of [
   'sales',
   'sale_items',
   'sale_payments',
+  'sale_void_audits',
   'customer_credit_payments',
   'customer_credit_allocations',
   'sale_receipt_tokens',
@@ -116,6 +117,14 @@ const rpcChecks = [
       p_payment_method: 'efectivo',
       p_request_key: `public-access-check-${Date.now()}`,
       p_created_by: 'x@x.invalid',
+    },
+  },
+  {
+    name: 'void_sale',
+    payload: {
+      p_sale_id: -1,
+      p_reason: '',
+      p_voided_by: 'x@x.invalid',
     },
   },
   {

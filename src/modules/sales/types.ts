@@ -4,6 +4,7 @@ import type {
   outOfStockProductSchema,
   saleResponseSchema,
   saleResultSchema,
+  voidSaleResultSchema,
 } from './schemas';
 
 export type SalePaymentType = 'cash' | 'credit' | 'partial';
@@ -16,6 +17,9 @@ export interface SaleRecord {
   paymentType: SalePaymentType;
   total: number;
   status: 'active' | 'voided';
+  voidedAt: string | null;
+  voidedBy: string | null;
+  voidReason: string | null;
   customerId: string | null;
   customerName: string | null;
   customerPhone: string | null;
@@ -28,3 +32,4 @@ export type CreateSaleRpcInput = Omit<CreateSaleInput, 'paymentType'> & {
 export type OutOfStockProduct = z.infer<typeof outOfStockProductSchema>;
 export type SaleResult = z.infer<typeof saleResultSchema>;
 export type SaleResponse = z.infer<typeof saleResponseSchema>;
+export type VoidSaleResult = z.infer<typeof voidSaleResultSchema>;

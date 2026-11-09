@@ -98,4 +98,31 @@ export const saleListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+export const voidSaleRequestSchema = z.object({
+  reason: z.string().trim().min(1, 'El motivo de anulación es obligatorio.').max(
+    500,
+    'El motivo no puede superar 500 caracteres.',
+  ),
+});
+
+export const saleIdParamSchema = z
+  .string()
+  .regex(/^[1-9]\d*$/, 'La venta indicada no es válida.')
+  .transform(Number)
+  .refine(Number.isSafeInteger, 'La venta indicada no es válida.');
+
+export const reactivatedSaleProductSchema = z.object({
+  id: z.string().min(1),
+  code: z.string().min(1),
+  name: z.string().min(1),
+});
+
+export const voidSaleResultSchema = z.object({
+  saleId: z.number().int().positive(),
+  voidedAt: z.string().datetime({ offset: true }),
+  voidedBy: z.string().min(1),
+  voidReason: z.string().min(1).max(500),
+  reactivatedProducts: z.array(reactivatedSaleProductSchema),
+});
+
 export { paymentMethodSchema };

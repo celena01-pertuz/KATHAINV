@@ -13,7 +13,7 @@ import type { ProductRecord } from '@/modules/products/types';
 import { buildWhatsAppUrl } from '@/modules/receipts/whatsapp';
 import { CUSTOMER_CREDIT_LABELS } from '@/modules/customer-credit/labels';
 import { createSaleRequestKey } from '../request-key';
-import { saleResponseSchema } from '../schemas';
+import { saleResponseSchema, voidSaleRequestSchema, voidSaleResultSchema } from '../schemas';
 import type { SalePaymentMethod, SalePaymentType, SaleRecord, SaleResult } from '../types';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState, LoadingState, RetryState } from '@/components/ui/PageStates';
@@ -94,6 +94,12 @@ export function SalesManager() {
   const [receiptLoadingId, setReceiptLoadingId] = useState<number | null>(null);
   const [receiptError, setReceiptError] = useState('');
   const [receiptNotice, setReceiptNotice] = useState('');
+  const [saleToVoid, setSaleToVoid] = useState<SaleRecord | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voidConfirmed, setVoidConfirmed] = useState(false);
+  const [voidSaving, setVoidSaving] = useState(false);
+  const [voidError, setVoidError] = useState('');
+  const [voidNotice, setVoidNotice] = useState('');
   const [confirmedSale, setConfirmedSale] = useState<{
     id: number;
     saleNumber: string;
@@ -539,6 +545,72 @@ export function SalesManager() {
       setReceiptNotice('Enlace copiado.');
     } catch {
       setReceiptError('No se pudo copiar el enlace. Puedes seleccionar y copiar la dirección.');
+    }
+  }
+
+  function openVoidDialog(sale: SaleRecord) {
+    setSaleToVoid(sale);
+    setVoidReason('');
+    setVoidConfirmed(false);
+    setVoidError('');
+    setVoidNotice('');
+  }
+
+  async function submitVoidSale(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!saleToVoid) return;
+    if (!voidConfirmed) {
+      setVoidError('Confirma que deseas anular esta venta.');
+      return;
+    }
+
+    const parsedRequest = voidSaleRequestSchema.safeParse({ reason: voidReason });
+    if (!parsedRequest.success) {
+      setVoidError(parsedRequest.error.issues.map((issue) => issue.message).join(' '));
+      return;
+    }
+
+    setVoidSaving(true);
+    setVoidError('');
+    try {
+      const response = await fetch(`/api/data/sales/${saleToVoid.id}/void`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsedRequest.data),
+      });
+      if (!response.ok) throw new Error(await responseError(response));
+
+      const body = (await response.json()) as ApiResponse<unknown>;
+      const result = voidSaleResultSchema.safeParse(body.data);
+      if (!result.success) throw new Error('No se pudo confirmar la anulación de la venta.');
+
+      setSales((currentSales) =>
+        currentSales.map((sale) =>
+          sale.id === result.data.saleId
+            ? {
+                ...sale,
+                status: 'voided',
+                voidedAt: result.data.voidedAt,
+                voidedBy: result.data.voidedBy,
+                voidReason: result.data.voidReason,
+              }
+            : sale,
+        ),
+      );
+      const reactivatedMessage =
+        result.data.reactivatedProducts.length > 0
+          ? ` Se reactivó: ${result.data.reactivatedProducts.map((product) => product.name).join(', ')}.`
+          : '';
+      setVoidNotice(`La venta ${saleToVoid.saleNumber} fue anulada y el stock fue devuelto.${reactivatedMessage}`);
+      setSaleToVoid(null);
+    } catch (submitError) {
+      setVoidError(
+        submitError instanceof Error
+          ? submitError.message
+          : 'No se pudo anular la venta. Inténtalo de nuevo.',
+      );
+    } finally {
+      setVoidSaving(false);
     }
   }
 
@@ -1351,6 +1423,11 @@ export function SalesManager() {
 
       <section className="mt-4 rounded-lg border border-border bg-surface p-4 shadow-sm">
         <h2 className="text-lg font-semibold">Ventas recientes</h2>
+        {voidNotice && (
+          <p role="status" className="mt-3 rounded-md bg-success/10 p-3 text-sm text-success">
+            {voidNotice}
+          </p>
+        )}
         {salesLoadError ? (
           <div className="mt-3">
             <RetryState
@@ -1397,12 +1474,107 @@ export function SalesManager() {
                   {' · '}
                   {sale.customerName ?? 'Sin cliente'}
                 </p>
+                {sale.status === 'voided' && (
+                  <div className="mt-2 text-sm">
+                    <span className="inline-flex min-h-11 items-center rounded-full bg-danger/10 px-3 font-semibold text-danger">
+                      Anulada
+                    </span>
+                    <p className="mt-1 text-muted">
+                      Motivo: {sale.voidReason ?? 'No disponible'}
+                      {sale.voidedAt && (
+                        <>
+                          {' · '}
+                          {new Intl.DateTimeFormat('es-CO', {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          }).format(new Date(sale.voidedAt))}
+                        </>
+                      )}
+                    </p>
+                    {sale.voidedBy && (
+                      <p className="mt-1 text-muted">Anulada por {sale.voidedBy}</p>
+                    )}
+                  </div>
+                )}
+                {sale.status === 'active' && (
+                  <button
+                    type="button"
+                    onClick={() => openVoidDialog(sale)}
+                    className="mt-3 min-h-11 rounded-md border border-danger px-4 font-semibold text-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
+                  >
+                    Anular venta
+                  </button>
+                )}
                 {receiptActions(sale.id, sale.saleNumber, sale.customerPhone)}
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {saleToVoid && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="void-sale-title"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-surface p-5 shadow-xl"
+          >
+            <h2 id="void-sale-title" className="text-xl font-bold">
+              Anular venta {saleToVoid.saleNumber}
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              Esta acción devuelve las existencias y anula los pagos iniciales. La devolución del
+              dinero a la clienta se hace manualmente, fuera del sistema.
+            </p>
+            <form className="mt-4 space-y-4" onSubmit={(event) => void submitVoidSale(event)}>
+              <label htmlFor="void-sale-reason" className="block font-medium">
+                Motivo (obligatorio, máximo 500 caracteres)
+              </label>
+              <textarea
+                id="void-sale-reason"
+                required
+                maxLength={500}
+                value={voidReason}
+                onChange={(event) => setVoidReason(event.target.value)}
+                className="min-h-28 w-full rounded-md border border-border bg-background px-3 py-2 text-foreground"
+              />
+              <p className="text-right text-sm text-muted">{voidReason.length}/500</p>
+              <label className="flex min-h-11 items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={voidConfirmed}
+                  onChange={(event) => setVoidConfirmed(event.target.checked)}
+                  className="h-5 w-5 accent-primary"
+                />
+                Confirmo que deseo anular esta venta
+              </label>
+              {voidError && (
+                <p role="alert" className="text-sm font-medium text-danger">
+                  {voidError}
+                </p>
+              )}
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSaleToVoid(null)}
+                  disabled={voidSaving}
+                  className="min-h-11 rounded-md border border-border px-4 font-semibold disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={voidSaving || !voidConfirmed || !voidReason.trim()}
+                  className="min-h-11 rounded-md bg-danger px-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {voidSaving ? 'Anulando venta…' : 'Confirmar anulación'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

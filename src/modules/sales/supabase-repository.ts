@@ -3,8 +3,18 @@ import 'server-only';
 import { z } from 'zod';
 import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 import { mapCreateSaleDatabaseError, SalesOperationError } from './errors';
-import { outOfStockProductSchema, saleResultSchema } from './schemas';
-import type { CreateSaleInput, CreateSaleRpcInput, SaleRecord, SaleResult } from './types';
+import {
+  outOfStockProductSchema,
+  saleResultSchema,
+  voidSaleResultSchema,
+} from './schemas';
+import type {
+  CreateSaleInput,
+  CreateSaleRpcInput,
+  SaleRecord,
+  SaleResult,
+  VoidSaleResult,
+} from './types';
 
 interface SaleRow {
   id: number;
@@ -13,14 +23,28 @@ interface SaleRow {
   payment_type: SaleRecord['paymentType'];
   total: number;
   status: SaleRecord['status'];
+  voided_at: string | null;
+  void_reason: string | null;
   customer_id: string | null;
   customer: { name: string; phone: string } | { name: string; phone: string }[] | null;
+  void_audit:
+    | { voided_by: string }[]
+    | { voided_by: string }
+    | null;
 }
 
 interface SaleRpcRow {
   sale_id: number;
   sale_number: string;
   total: number;
+}
+
+interface VoidSaleRpcRow {
+  sale_id: number;
+  voided_at: string;
+  voided_by: string;
+  void_reason: string;
+  reactivated_products: unknown;
 }
 
 const productStockRowSchema = outOfStockProductSchema.extend({
@@ -85,6 +109,11 @@ function mapSale(row: SaleRow): SaleRecord {
     paymentType: row.payment_type,
     total: row.total,
     status: row.status,
+    voidedAt: row.voided_at,
+    voidedBy: Array.isArray(row.void_audit)
+      ? (row.void_audit[0]?.voided_by ?? null)
+      : (row.void_audit?.voided_by ?? null),
+    voidReason: row.void_reason,
     customerId: row.customer_id,
     customerName: Array.isArray(row.customer)
       ? (row.customer[0]?.name ?? null)
@@ -124,7 +153,7 @@ export async function listRecentSales(limit = 20): Promise<SaleRecord[]> {
   const { data, error } = await client
     .from('sales')
     .select(
-      'id, sale_number, sold_at, payment_type, total, status, customer_id, customer:customers(name, phone)',
+      'id, sale_number, sold_at, payment_type, total, status, voided_at, void_reason, customer_id, customer:customers(name, phone), void_audit:sale_void_audits(voided_by)',
     )
     .order('sold_at', { ascending: false })
     .limit(limit);
@@ -138,6 +167,74 @@ export async function listRecentSales(limit = 20): Promise<SaleRecord[]> {
   }
 
   return (data as SaleRow[]).map(mapSale);
+}
+
+export async function voidSale(
+  saleId: number,
+  reason: string,
+  voidedBy: string,
+): Promise<VoidSaleResult> {
+  const client = createAdminSupabaseClient();
+  const { data, error } = await client.rpc('void_sale', {
+    p_sale_id: saleId,
+    p_reason: reason,
+    p_voided_by: voidedBy,
+  });
+
+  if (error) {
+    const message = error.message;
+    if (message.includes('ya fue anulada')) {
+      throw new SalesOperationError('La venta ya fue anulada.', 409, 'ALREADY_VOIDED');
+    }
+    if (message.includes('tiene abonos')) {
+      throw new SalesOperationError(
+        'Esta venta tiene abonos. Anula primero esos abonos y luego la venta.',
+        409,
+        'SALE_HAS_ACTIVE_INSTALLMENTS',
+      );
+    }
+    if (message.includes('no existe')) {
+      throw new SalesOperationError('No se encontró la venta indicada.', 404, 'NOT_FOUND');
+    }
+    if (message.includes('stock máximo')) {
+      throw new SalesOperationError(
+        'La devolución supera el stock máximo permitido.',
+        409,
+        'STOCK_LIMIT_EXCEEDED',
+      );
+    }
+    if (message.includes('motivo de anulación')) {
+      throw new SalesOperationError(
+        'El motivo de anulación es obligatorio y no puede superar 500 caracteres.',
+        400,
+        'VALIDATION_ERROR',
+      );
+    }
+    throw new SalesOperationError(
+      'No se pudo anular la venta. Inténtalo más tarde.',
+      500,
+      'SALE_VOID_ERROR',
+    );
+  }
+
+  const row = (data as VoidSaleRpcRow[] | null)?.[0];
+  const parsed = row
+    ? voidSaleResultSchema.safeParse({
+        saleId: row.sale_id,
+        voidedAt: row.voided_at,
+        voidedBy: row.voided_by,
+        voidReason: row.void_reason,
+        reactivatedProducts: row.reactivated_products,
+      })
+    : null;
+  if (!parsed?.success) {
+    throw new SalesOperationError(
+      'No se pudo confirmar la anulación de la venta.',
+      500,
+      'SALE_VOID_ERROR',
+    );
+  }
+  return parsed.data;
 }
 
 export async function createSale(

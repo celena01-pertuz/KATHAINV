@@ -10,7 +10,7 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminSupabaseClient: createAdminSupabaseClientMock,
 }));
 
-import { createSale, listRecentSales } from '../supabase-repository';
+import { createSale, listRecentSales, voidSale } from '../supabase-repository';
 
 const createSaleInput = {
   customerId: null,
@@ -180,8 +180,11 @@ describe('repositorio Supabase de ventas', () => {
           payment_type: 'credit',
           total: 25000,
           status: 'active',
+          voided_at: null,
+          void_reason: null,
           customer_id: 'customer_1',
           customer: { name: 'Cliente de prueba', phone: '573001112233' },
+          void_audit: [],
         },
       ],
       error: null,
@@ -198,6 +201,9 @@ describe('repositorio Supabase de ventas', () => {
         paymentType: 'credit',
         total: 25000,
         status: 'active',
+        voidedAt: null,
+        voidedBy: null,
+        voidReason: null,
         customerId: 'customer_1',
         customerName: 'Cliente de prueba',
         customerPhone: '573001112233',
@@ -205,9 +211,76 @@ describe('repositorio Supabase de ventas', () => {
     ]);
     expect(fromMock).toHaveBeenCalledWith('sales');
     expect(selectMock).toHaveBeenCalledWith(
-      'id, sale_number, sold_at, payment_type, total, status, customer_id, customer:customers(name, phone)',
+      'id, sale_number, sold_at, payment_type, total, status, voided_at, void_reason, customer_id, customer:customers(name, phone), void_audit:sale_void_audits(voided_by)',
     );
     expect(orderMock).toHaveBeenCalledWith('sold_at', { ascending: false });
     expect(limitMock).toHaveBeenCalledWith(10);
+  });
+
+  it('anula una venta con el RPC y valida la lista de productos reactivados', async () => {
+    rpcMock.mockResolvedValue({
+      data: [
+        {
+          sale_id: 8,
+          voided_at: '2026-11-09T12:00:00.000Z',
+          voided_by: 'owner@example.test',
+          void_reason: 'Devolución solicitada',
+          reactivated_products: [
+            { id: 'product_1', code: 'KAT-1', name: 'Producto de prueba' },
+          ],
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      voidSale(8, 'Devolución solicitada', 'owner@example.test'),
+    ).resolves.toEqual({
+      saleId: 8,
+      voidedAt: '2026-11-09T12:00:00.000Z',
+      voidedBy: 'owner@example.test',
+      voidReason: 'Devolución solicitada',
+      reactivatedProducts: [
+        { id: 'product_1', code: 'KAT-1', name: 'Producto de prueba' },
+      ],
+    });
+    expect(rpcMock).toHaveBeenCalledWith('void_sale', {
+      p_sale_id: 8,
+      p_reason: 'Devolución solicitada',
+      p_voided_by: 'owner@example.test',
+    });
+  });
+
+  it('incluye el actor auditado de ventas anuladas en el historial', async () => {
+    const limitMock = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 8,
+          sale_number: 'V-000008',
+          sold_at: '2026-10-30T12:00:00.000Z',
+          payment_type: 'cash',
+          total: 25000,
+          status: 'voided',
+          voided_at: '2026-11-09T12:00:00.000Z',
+          void_reason: 'Devolución solicitada',
+          customer_id: null,
+          customer: null,
+          void_audit: { voided_by: 'owner@example.test' },
+        },
+      ],
+      error: null,
+    });
+    const orderMock = vi.fn().mockReturnValue({ limit: limitMock });
+    const selectMock = vi.fn().mockReturnValue({ order: orderMock });
+    fromMock.mockReturnValue({ select: selectMock });
+
+    await expect(listRecentSales(10)).resolves.toMatchObject([
+      {
+        status: 'voided',
+        voidedAt: '2026-11-09T12:00:00.000Z',
+        voidedBy: 'owner@example.test',
+        voidReason: 'Devolución solicitada',
+      },
+    ]);
   });
 });

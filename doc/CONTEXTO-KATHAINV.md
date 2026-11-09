@@ -59,7 +59,7 @@ Requisitos para las tareas 3.3 y 3.4:
 - En cada venta la interfaz ofrece **“De contado”** o **“A crédito”**. El servidor conserva los valores internos `cash`, `credit` y `partial`: en una venta a crédito, pago hoy cero se mapea a `credit`, un monto menor al total a `partial` y el total exacto a `cash`. Para vender a crédito el cliente debe estar registrado y activo.
 - Un **abono** es un pago posterior que se registra por cliente y se reparte automáticamente entre sus ventas activas con saldo, de la más antigua a la más nueva. Cada abono conserva fecha, monto, medio de pago y una nota opcional. El monto no puede superar la deuda total pendiente. La base serializa abonos simultáneos del mismo cliente; al anular un abono con motivo, se restaura su saldo sin borrar el registro.
 - El saldo del cliente se calcula a partir del total de sus ventas menos los pagos iniciales y abonos no anulados; nunca se escribe ni se ajusta a mano.
-- La tabla de ventas conserva desde su creación el estado activa/anulada y los datos de auditoría de anulación. La función que anula una venta y devuelve su stock se implementará en una tarea posterior.
+- La venta conserva el estado activa/anulada, fecha y motivo; el actor verificado se conserva en una auditoría asociada. La anulación y devolución de stock se implementaron localmente como Tarea 3.3D, con una migración nueva aún pendiente de aplicación manual.
 - Los pagos registran su forma: efectivo, transferencia/Nequi o tarjeta.
 - El teléfono del cliente se guarda normalizado como `57` seguido del número, solo dígitos. Si ya existe otro cliente con ese teléfono, se muestra un aviso sin impedir el registro.
 - No se registran nombres, teléfonos ni documentos de clientes en logs ni en mensajes de error.
@@ -156,4 +156,4 @@ Ya existen los reportes, las compras con total entero no negativo, las etiquetas
 
 RN-02 y RN-15 se implementaron como Tarea 3.2 (enriquecimiento del módulo de productos): referencia única normalizada por nombre+talla+color; productos no borrables y desactivación solo con stock cero. La migración y el smoke test quedaron preparados localmente; no se ejecutó SQL.
 
-El seguimiento detallado se mantiene en `doc/ESTADO_EJECUCION.md`. Siguen pendientes las vistas de productos y clientes en dos columnas, la revisión general contra el plan, los fiados, la anulación de ventas, la Fase 4 y el acuerdo con el profesor sobre descuentos.
+El seguimiento detallado se mantiene en `doc/ESTADO_EJECUCION.md`. Siguen pendientes las vistas de productos y clientes en dos columnas, la revisión general contra el plan, la aplicación/verificación manual de migraciones locales, la Fase 4 y el acuerdo con el profesor sobre descuentos.

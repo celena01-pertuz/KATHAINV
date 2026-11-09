@@ -111,3 +111,13 @@ Los prompts P01–P09 conservan su estado formal hasta completar y verificar tod
 - El comprobador de acceso público se ejecutó con el servidor apagado: 20 comprobaciones OK; 2 RPC de funciones trigger (`protect_customer_credit_payment` y `protect_customer_credit_allocation`) no concluyentes por respuesta HTTP 404. Incluye las dos tablas de abonos y las cuatro RPC de negocio de crédito.
 - El encargo asigna esta funcionalidad como Tarea 3.4. Nota: en `plan-implementacion-fases-ts-fullstack.md`, el encabezado existente “Tarea 3.4” corresponde a roles y permisos; no se renumeró ni alteró ese plan.
 - Verificación local con el servidor apagado: `npm.cmd run type-check` OK; `npm.cmd run lint` OK (aviso de obsolescencia de `next lint`, sin errores); `npm.cmd test` OK (60 archivos, 258 pruebas); `npm.cmd run build` OK. No se ejecutó SQL; no se hizo commit.
+
+### Tarea 3.3D · Anulación de ventas con devolución de stock · 2026-11-09
+
+- Identificador acordado para continuar el bloque de ventas iniciado en la Tarea 3.3B; no se renumeran las tareas originales del plan (allí 3.3 es autenticación y 3.4 es roles/permisos).
+- La migración nueva crea `sale_void_audits` para conservar al actor de la sesión verificada, y el RPC `void_sale` bloquea la venta y sus productos, rechaza ventas con abonos activos, devuelve existencias, reactiva productos inactivos y anula pagos iniciales. No se alteran migraciones ni tablas/funciones existentes.
+- `/sales` pide motivo y confirmación, avisa que la devolución del dinero es manual y mantiene las ventas anuladas en el historial sin acción para volver a anularlas.
+- `get_public_receipt` ya devuelve `status`; `/receipt/[token]` ya muestra “Venta anulada”. Se verificó que reportes y cartera filtran `sales.status = 'active'`; no se modificaron.
+- Se preparó `supabase/tests/sales_void_smoke_test.sql` con `BEGIN`/`ROLLBACK`. No se ejecutó SQL, el smoke test está pendiente de aplicación manual de la migración y el comprobador público se ejecutará cuando la estudiante indique “APLICADA”.
+- Verificaciones, cada una individual con `npm.cmd` y el servidor apagado: `type-check` ✅; `lint` ✅ (aviso de obsolescencia de `next lint`, sin errores); `test` ✅ (61 archivos, 266 pruebas); `build` ✅. Se confirmó que el puerto 3000 quedó sin servidor.
+- No se ejecutó SQL ni se hizo commit.
