@@ -4,6 +4,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { CUSTOMER_DATA_NOTICE, CUSTOMER_DATA_NOTICE_VERSION } from '../consent-notice';
 import { normalizeColombianPhone } from '../phone-utils';
 import type { CustomerRecord, CustomerSaveResult } from '../types';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState, LoadingState, RetryState } from '@/components/ui/PageStates';
 
 type ApiResponse<T> = {
   data: T;
@@ -30,11 +32,13 @@ function formatAuthorizationDate(value: string): string {
 export function CustomerManager() {
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [search, setSearch] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<CustomerRecord | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [duplicatePhone, setDuplicatePhone] = useState<boolean | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -44,7 +48,7 @@ export function CustomerManager() {
     const timer = window.setTimeout(() => {
       async function loadCustomers() {
         setLoading(true);
-        setError('');
+        setLoadError('');
         try {
           const response = await fetch(
             `/api/data/customers?q=${encodeURIComponent(search.trim())}`,
@@ -56,13 +60,9 @@ export function CustomerManager() {
             total: number;
           }>;
           setCustomers(body.data.data);
-        } catch (loadError) {
+        } catch {
           if (controller.signal.aborted) return;
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : 'No se pudieron cargar los clientes.',
-          );
+          setLoadError('No pudimos cargar los clientes. Revisa tu conexión e inténtalo de nuevo.');
         } finally {
           if (!controller.signal.aborted) setLoading(false);
         }
@@ -78,6 +78,7 @@ export function CustomerManager() {
   }, [search, refreshKey]);
 
   function startCreate() {
+    setSelectedCustomer(null);
     setEditingCustomer(null);
     setDuplicatePhone(null);
     setShowForm(true);
@@ -86,6 +87,7 @@ export function CustomerManager() {
   }
 
   function startEdit(customer: CustomerRecord) {
+    setSelectedCustomer(customer);
     setEditingCustomer(customer);
     setDuplicatePhone(null);
     setShowForm(true);
@@ -145,6 +147,7 @@ export function CustomerManager() {
       const body = (await response.json()) as ApiResponse<CustomerSaveResult>;
       setShowForm(false);
       setEditingCustomer(null);
+      setSelectedCustomer(body.data.customer);
       setDuplicatePhone(null);
       setNotice(
         body.data.duplicatePhone
@@ -173,6 +176,9 @@ export function CustomerManager() {
         body: JSON.stringify({ id: customer.id, active: !customer.active }),
       });
       if (!response.ok) throw new Error(await readApiError(response));
+      setSelectedCustomer((current) =>
+        current?.id === customer.id ? { ...current, active: !customer.active } : current,
+      );
       setNotice(customer.active ? 'Cliente desactivado.' : 'Cliente reactivado.');
       setRefreshKey((key) => key + 1);
     } catch (statusError) {
@@ -186,19 +192,19 @@ export function CustomerManager() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 lg:px-16">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Clientes</h1>
-          <p className="mt-1 text-sm text-muted">Administra los datos y la autorización de tus clientes.</p>
-        </div>
-        <button
-          type="button"
-          onClick={startCreate}
-          className="min-h-11 rounded-md bg-primary px-4 font-semibold text-primary-foreground"
-        >
-          Nuevo cliente
-        </button>
-      </header>
+      <PageHeader
+        title="Clientes"
+        description="Consulta y administra tus clientes y sus datos."
+        secondaryActions={
+          <button
+            type="button"
+            onClick={startCreate}
+            className="min-h-11 rounded-md border border-border px-4 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            Nuevo cliente
+          </button>
+        }
+      />
 
       {notice && <p className="mb-4 rounded-md bg-success/10 p-3 text-sm">{notice}</p>}
       {error && (
@@ -207,88 +213,143 @@ export function CustomerManager() {
         </p>
       )}
 
-      {showForm && (
-        <CustomerForm
-          customer={editingCustomer}
-          duplicatePhone={duplicatePhone}
-          saving={saving}
-          onCancel={() => {
-            setShowForm(false);
-            setDuplicatePhone(null);
-          }}
-          onPhoneBlur={(phone) => void checkDuplicatePhone(phone)}
-          onPhoneChange={() => setDuplicatePhone(null)}
-          onSubmit={saveCustomer}
-        />
-      )}
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
+        <section aria-label="Buscar clientes" className="space-y-4">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Buscar por nombre o teléfono</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="min-h-11 w-full rounded-md border border-border bg-surface px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              placeholder="Escribe un nombre o teléfono"
+            />
+          </label>
 
-      <label className="mb-4 block">
-        <span className="mb-1 block text-sm font-medium">
-          Buscar por nombre, teléfono o documento
-        </span>
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="min-h-11 w-full rounded-md border border-border bg-surface px-3"
-          placeholder="Escribe un nombre, teléfono o documento"
-        />
-      </label>
+          {loadError ? (
+            <RetryState message={loadError} onRetry={() => setRefreshKey((key) => key + 1)} />
+          ) : loading ? (
+            <LoadingState label="Cargando clientes" />
+          ) : customers.length === 0 ? (
+            <EmptyState>
+              {search.trim()
+                ? 'No encontramos clientes con esa búsqueda.'
+                : 'Todavía no hay clientes. Usa “Nuevo cliente” para registrar el primero.'}
+            </EmptyState>
+          ) : (
+            <ul className="space-y-4">
+              {customers.map((customer) => (
+                <li
+                  key={customer.id}
+                  className="rounded-lg border border-border bg-surface p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="break-words font-semibold">{customer.name}</h2>
+                      <p className="mt-1 break-all text-sm text-muted">{customer.phone}</p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
+                        customer.active ? 'bg-success/10 text-success' : 'bg-background text-muted'
+                      }`}
+                    >
+                      {customer.active ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      onClick={() => setSelectedCustomer(customer)}
+                    >
+                      Ver detalle
+                    </button>
+                    <button
+                      type="button"
+                      className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      onClick={() => startEdit(customer)}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      onClick={() => void toggleCustomer(customer)}
+                    >
+                      {customer.active ? 'Desactivar' : 'Reactivar'}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-      {loading ? (
-        <p role="status">Cargando clientes…</p>
-      ) : customers.length === 0 ? (
-        <p className="rounded-md border border-border bg-surface p-5 text-sm">
-          No hay clientes que coincidan con la búsqueda.
-        </p>
-      ) : (
-        <ul className="grid gap-3 md:grid-cols-2">
-          {customers.map((customer) => (
-            <li
-              key={customer.id}
-              className="rounded-lg border border-border bg-surface p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="break-words font-semibold">{customer.name}</h2>
-                  <p className="mt-1 break-all text-sm text-muted">{customer.phone}</p>
-                  {customer.document && (
-                    <p className="text-sm text-muted">Documento: {customer.document}</p>
-                  )}
+        <aside className="space-y-4">
+          {showForm ? (
+            <CustomerForm
+              customer={editingCustomer}
+              duplicatePhone={duplicatePhone}
+              saving={saving}
+              onCancel={() => {
+                setShowForm(false);
+                setDuplicatePhone(null);
+              }}
+              onPhoneBlur={(phone) => void checkDuplicatePhone(phone)}
+              onPhoneChange={() => setDuplicatePhone(null)}
+              onSubmit={saveCustomer}
+            />
+          ) : selectedCustomer ? (
+            <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
+              <h2 className="text-lg font-semibold">Detalle del cliente</h2>
+              <dl className="mt-3 space-y-3 text-sm">
+                <div>
+                  <dt className="text-muted">Nombre</dt>
+                  <dd className="font-medium">{selectedCustomer.name}</dd>
                 </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
-                    customer.active ? 'bg-success/10 text-success' : 'bg-background text-muted'
-                  }`}
-                >
-                  {customer.active ? 'Activo' : 'Inactivo'}
-                </span>
-              </div>
-              <p className="mt-3 text-xs text-muted">
-                Autorización {customer.dataTreatmentNoticeVersion} ·{' '}
-                {formatAuthorizationDate(customer.dataTreatmentAuthorizedAt)} ·{' '}
-                {customer.dataTreatmentAuthorizationSource}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
+                <div>
+                  <dt className="text-muted">Teléfono</dt>
+                  <dd>{selectedCustomer.phone}</dd>
+                </div>
+                {selectedCustomer.document && (
+                  <div>
+                    <dt className="text-muted">Documento</dt>
+                    <dd>{selectedCustomer.document}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-muted">Autorización</dt>
+                  <dd>
+                    {selectedCustomer.dataTreatmentNoticeVersion} ·{' '}
+                    {formatAuthorizationDate(selectedCustomer.dataTreatmentAuthorizedAt)} ·{' '}
+                    {selectedCustomer.dataTreatmentAuthorizationSource}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="min-h-11 rounded-md border border-border px-3 text-sm"
-                  onClick={() => startEdit(customer)}
+                  className="min-h-11 rounded-md border border-border px-4 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  onClick={() => startEdit(selectedCustomer)}
                 >
-                  Editar
+                  Editar cliente
                 </button>
                 <button
                   type="button"
-                  className="min-h-11 rounded-md border border-border px-3 text-sm"
-                  onClick={() => void toggleCustomer(customer)}
+                  className="min-h-11 rounded-md border border-border px-4 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  onClick={() => void toggleCustomer(selectedCustomer)}
                 >
-                  {customer.active ? 'Desactivar' : 'Reactivar'}
+                  {selectedCustomer.active ? 'Desactivar' : 'Reactivar'}
                 </button>
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
+            </section>
+          ) : (
+            <EmptyState>
+              Elige un cliente de la lista para ver su información o selecciona “Nuevo cliente”.
+            </EmptyState>
+          )}
+        </aside>
+      </div>
     </main>
   );
 }
@@ -328,7 +389,7 @@ function CustomerForm({
           maxLength={120}
           defaultValue={customer?.name ?? ''}
           autoComplete="name"
-          className="min-h-11 w-full rounded-md border border-border bg-background px-3"
+          className="min-h-11 w-full rounded-md border border-border bg-background px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         />
       </label>
       <label>
@@ -343,7 +404,7 @@ function CustomerForm({
           onChange={onPhoneChange}
           onBlur={(event) => onPhoneBlur(event.currentTarget.value)}
           placeholder="300 123 4567"
-          className="min-h-11 w-full rounded-md border border-border bg-background px-3"
+          className="min-h-11 w-full rounded-md border border-border bg-background px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         />
         <span className="mt-1 block text-xs text-muted">Se guardará con indicativo +57.</span>
         {duplicatePhone && (
@@ -358,7 +419,7 @@ function CustomerForm({
           name="document"
           maxLength={80}
           defaultValue={customer?.document ?? ''}
-          className="min-h-11 w-full rounded-md border border-border bg-background px-3"
+          className="min-h-11 w-full rounded-md border border-border bg-background px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         />
       </label>
 
@@ -382,7 +443,7 @@ function CustomerForm({
               name="authorizationSource"
               required
               defaultValue="formulario"
-              className="min-h-11 w-full rounded-md border border-border bg-background px-3"
+              className="min-h-11 w-full rounded-md border border-border bg-background px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <option value="formulario">Formulario</option>
               <option value="registro presencial">Registro presencial</option>
@@ -394,15 +455,16 @@ function CustomerForm({
       <div className="flex flex-wrap gap-2 sm:col-span-2">
         <button
           type="submit"
+          data-primary-action
           disabled={saving}
-          className="min-h-11 rounded-md bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-60"
+          className="min-h-11 rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
         >
           {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Registrar cliente'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="min-h-11 rounded-md border border-border px-4"
+          className="min-h-11 rounded-md border border-border px-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Cancelar
         </button>

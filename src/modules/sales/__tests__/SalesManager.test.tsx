@@ -123,6 +123,15 @@ afterEach(() => {
 });
 
 describe('SalesManager interfaz', () => {
+  it('muestra el mensaje vacío y una sola acción principal para registrar la venta', async () => {
+    setupSalesApi();
+    const { container } = render(<SalesManager />);
+
+    expect(await screen.findByText('Todavía no hay ventas.')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-primary-action]')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Registrar venta' })).toHaveLength(1);
+  });
+
   it('calcula el total con los precios de los productos agregados', async () => {
     setupSalesApi();
     render(<SalesManager />);
@@ -146,7 +155,7 @@ describe('SalesManager interfaz', () => {
   it('no permite registrar una venta sin productos', async () => {
     const { fetchMock } = setupSalesApi();
     render(<SalesManager />);
-    await screen.findByText('Todavía no hay ventas registradas.');
+    await screen.findByText('Todavía no hay ventas.');
 
     fireEvent.submit(screen.getByTestId('sale-form'));
 

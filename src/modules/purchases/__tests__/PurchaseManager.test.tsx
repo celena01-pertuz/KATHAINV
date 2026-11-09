@@ -46,7 +46,7 @@ describe('PurchaseManager', () => {
     render(<PurchaseManager />);
 
     expect(await screen.findByRole('heading', { name: 'Proveedores' })).toBeInTheDocument();
-    expect(screen.getByText('Compra de mercancía a tus proveedores')).toBeInTheDocument();
+    expect(screen.getByText('Registra compras y mantén a mano tus proveedores.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Compra a proveedor' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Compras recientes' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Registrar compra' })).not.toBeInTheDocument();
@@ -68,5 +68,27 @@ describe('PurchaseManager', () => {
 
     expect(screen.getByRole('heading', { name: 'Nuevo proveedor' })).toBeInTheDocument();
     expect(screen.getByLabelText('Nombre del proveedor')).toBeInTheDocument();
+  });
+
+  it('muestra un mensaje amable cuando aún no hay compras y ofrece registrarlas', async () => {
+    fetchMock.mockImplementation(async (resource: RequestInfo | URL) => ({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: String(resource).includes('/purchases')
+          ? { data: [] }
+          : { data: [] },
+      }),
+    }));
+
+    const { container } = render(<PurchaseManager />);
+
+    expect(await screen.findByText('Todavía no hay compras.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Registrar una compra' })).toHaveAttribute(
+      'href',
+      '#purchase-form',
+    );
+    expect(container.querySelectorAll('[data-primary-action]')).toHaveLength(1);
+    expect(container.querySelector('main > div')?.className).toContain('md:grid-cols-2');
   });
 });

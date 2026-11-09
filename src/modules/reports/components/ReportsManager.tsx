@@ -8,6 +8,8 @@ import {
   reportDateRangeSchema,
 } from '../date-range';
 import type { ProductSalesReport, ReportDateRange, ReportProduct } from '../types';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState, LoadingState, RetryState } from '@/components/ui/PageStates';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -46,6 +48,7 @@ export function ReportsManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rangeError, setRangeError] = useState('');
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -63,13 +66,9 @@ export function ReportsManager() {
         const parsed = productSalesReportSchema.safeParse(body.data);
         if (!parsed.success) throw new Error('La respuesta del reporte no tiene un formato válido.');
         if (active) setReport(parsed.data);
-      } catch (loadError) {
+      } catch {
         if (active) {
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : 'No se pudieron consultar los reportes.',
-          );
+          setError('No pudimos cargar el reporte. Inténtalo de nuevo.');
         }
       } finally {
         if (active) setLoading(false);
@@ -80,7 +79,7 @@ export function ReportsManager() {
     return () => {
       active = false;
     };
-  }, [range]);
+  }, [range, retryKey]);
 
   function choosePeriod(period: QuickPeriod) {
     const nextRange = getQuickReportDateRange(period);
@@ -104,17 +103,15 @@ export function ReportsManager() {
   const visibleProducts = showAll ? products : products.slice(0, 10);
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8 lg:px-10">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold sm:text-3xl">Reportes</h1>
-        <p className="mt-2 text-sm text-muted">
-          Productos más y menos vendidos por periodo.
-        </p>
-      </header>
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 lg:px-16">
+      <PageHeader
+        title="Reportes"
+        description="Revisa los productos más y menos vendidos por periodo."
+      />
 
       <section
         aria-label="Rango de fechas"
-        className="mb-6 rounded-xl border border-border bg-surface p-4 sm:p-5"
+        className="mb-4 rounded-xl border border-border bg-surface p-4 sm:p-5"
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {quickPeriods.map((period) => (
@@ -153,6 +150,7 @@ export function ReportsManager() {
           </label>
           <button
             type="submit"
+            data-primary-action
             className="min-h-11 self-end rounded-lg bg-primary px-5 font-semibold text-primary-foreground hover:opacity-90 dark:hover:bg-primary-hover dark:hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             Consultar
@@ -167,19 +165,24 @@ export function ReportsManager() {
       </section>
 
       {error && (
-        <p role="alert" className="mb-4 rounded-lg border border-danger/30 p-4 text-sm">
-          {error}
-        </p>
+        <div className="mb-4">
+          <RetryState message={error} onRetry={() => setRetryKey((key) => key + 1)} />
+        </div>
       )}
 
-      <section aria-label="Resumen del periodo" className="mb-6 grid gap-3 sm:grid-cols-3">
-        <SummaryCard
-          label="Unidades vendidas"
-          value={numberFormatter.format(report?.summary.unitsSold ?? 0)}
-        />
-        <SummaryCard label="Total vendido" value={currencyFormatter.format(report?.summary.totalSold ?? 0)} />
-        <SummaryCard label="Ventas" value={numberFormatter.format(report?.summary.salesCount ?? 0)} />
-      </section>
+      {!error && (
+        <section aria-label="Resumen del periodo" className="mb-4 grid gap-4 sm:grid-cols-3">
+          <SummaryCard
+            label="Unidades vendidas"
+            value={numberFormatter.format(report?.summary.unitsSold ?? 0)}
+          />
+          <SummaryCard
+            label="Total vendido"
+            value={currencyFormatter.format(report?.summary.totalSold ?? 0)}
+          />
+          <SummaryCard label="Ventas" value={numberFormatter.format(report?.summary.salesCount ?? 0)} />
+        </section>
+      )}
 
       <section className="rounded-xl border border-border bg-surface">
         <div
@@ -207,15 +210,15 @@ export function ReportsManager() {
           </TabButton>
         </div>
         <div className="p-4 sm:p-5">
-          {loading && <p role="status">Cargando reportes…</p>}
+          {loading && <LoadingState label="Cargando reportes" />}
           {!loading && report?.summary.salesCount === 0 && (
-            <p className="mb-4 rounded-lg bg-muted p-3 text-sm">No hay ventas en este rango</p>
+            <EmptyState>Todavía no hay ventas en este periodo.</EmptyState>
           )}
           {!loading && !error && products.length === 0 && report?.summary.salesCount !== 0 && (
-            <p className="text-sm text-muted">No hay productos para mostrar.</p>
+            <EmptyState>No encontramos productos para mostrar.</EmptyState>
           )}
           {!loading && visibleProducts.length > 0 && (
-            <ul className="space-y-3">
+            <ul className="space-y-4">
               {visibleProducts.map((product) => (
                 <li key={product.id}>
                   <ProductCard product={product} />

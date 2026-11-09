@@ -14,6 +14,8 @@ import { buildWhatsAppUrl } from '@/modules/receipts/whatsapp';
 import { createSaleRequestKey } from '../request-key';
 import { saleResultSchema } from '../schemas';
 import type { SalePaymentMethod, SalePaymentType, SaleRecord, SaleResult } from '../types';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState, LoadingState, RetryState } from '@/components/ui/PageStates';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -74,6 +76,8 @@ export function SalesManager() {
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod | ''>('');
   const [requestKey, setRequestKey] = useState(createSaleRequestKey);
   const [loadingSales, setLoadingSales] = useState(true);
+  const [salesLoadError, setSalesLoadError] = useState('');
+  const [salesRetryKey, setSalesRetryKey] = useState(0);
   const [searchingProduct, setSearchingProduct] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
@@ -123,6 +127,8 @@ export function SalesManager() {
   useEffect(() => {
     const controller = new AbortController();
     async function loadRecentSales() {
+      setLoadingSales(true);
+      setSalesLoadError('');
       try {
         const response = await fetch('/api/data/sales?limit=20', {
           cache: 'no-store',
@@ -131,13 +137,9 @@ export function SalesManager() {
         if (!response.ok) throw new Error(await responseError(response));
         const body = (await response.json()) as ApiResponse<{ data: SaleRecord[] }>;
         setSales(body.data?.data ?? []);
-      } catch (loadError) {
+      } catch {
         if (!controller.signal.aborted) {
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : 'No se pudieron cargar las ventas recientes.',
-          );
+          setSalesLoadError('No pudimos cargar las ventas recientes. Inténtalo de nuevo.');
         }
       } finally {
         if (!controller.signal.aborted) setLoadingSales(false);
@@ -146,7 +148,7 @@ export function SalesManager() {
 
     void loadRecentSales();
     return () => controller.abort();
-  }, []);
+  }, [salesRetryKey]);
 
   useEffect(() => {
     activeRef.current = true;
@@ -513,7 +515,7 @@ export function SalesManager() {
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex min-h-11 items-center justify-center rounded-md bg-primary px-4 text-center font-semibold text-primary-foreground"
+                className="flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-center font-semibold"
               >
                 Enviar por WhatsApp
               </a>
@@ -693,11 +695,11 @@ export function SalesManager() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 pb-[calc(10rem+env(safe-area-inset-bottom))] sm:px-8 md:pb-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold">Registrar venta</h1>
-        <p className="mt-1 text-sm text-muted">Sigue los pasos para registrar una venta.</p>
-      </header>
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 pb-[calc(10rem+env(safe-area-inset-bottom))] sm:px-8 lg:px-16 md:pb-8">
+      <PageHeader
+        title="Registrar venta"
+        description="Sigue los pasos para registrar una venta."
+      />
 
       {error && (
         <p role="alert" className="mb-4 rounded-md bg-danger/10 p-3 text-sm">
@@ -709,7 +711,7 @@ export function SalesManager() {
         className={
           confirmedSale
             ? 'mx-auto max-w-xl'
-            : 'grid gap-6 md:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]'
+            : 'grid gap-4 md:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]'
         }
       >
         {!confirmedSale && (
@@ -862,7 +864,7 @@ export function SalesManager() {
                         <button
                           type="submit"
                           disabled={savingCustomer}
-                          className="min-h-11 rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+                          className="min-h-11 rounded-md border border-border px-4 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
                         >
                           {savingCustomer ? 'Guardando…' : 'Guardar y usar en esta venta'}
                         </button>
@@ -944,7 +946,7 @@ export function SalesManager() {
                 <button
                   type="submit"
                   disabled={searchingProduct}
-                  className="mt-2 min-h-11 w-full rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+                  className="mt-2 min-h-11 w-full rounded-md border border-border px-4 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
                 >
                   {searchingProduct ? 'Buscando…' : 'Agregar por código'}
                 </button>
@@ -1182,16 +1184,6 @@ export function SalesManager() {
               </p>
             </div>
 
-            {!confirmedSale && (
-              <button
-                type="submit"
-                disabled={!canSell}
-                className="mt-4 hidden min-h-12 w-full rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60 md:block"
-              >
-                {saving ? 'Registrando venta…' : 'Registrar venta'}
-              </button>
-            )}
-
             {confirmedSale && (
               <section
                 aria-label="Comprobante de venta"
@@ -1267,15 +1259,56 @@ export function SalesManager() {
               </section>
             )}
           </form>
+          {!confirmedSale && (
+            <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-surface px-4 py-2 shadow-lg md:static md:mt-4 md:border-0 md:bg-transparent md:px-0 md:py-0 md:shadow-none">
+              <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 md:block">
+                <div className="min-w-0 md:hidden">
+                  <p className="text-xs text-muted">Total</p>
+                  <p className="truncate text-lg font-bold">{formatCOP(total)}</p>
+                </div>
+                <button
+                  type="submit"
+                  form="sale-form"
+                  data-primary-action
+                  disabled={!canSell}
+                  className="min-h-11 shrink-0 rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60 md:w-full"
+                >
+                  {saving ? 'Registrando venta…' : 'Registrar venta'}
+                </button>
+              </div>
+            </div>
+          )}
         </aside>
       </div>
 
-      <section className="mt-8 rounded-lg border border-border bg-surface p-4 shadow-sm">
+      <section className="mt-4 rounded-lg border border-border bg-surface p-4 shadow-sm">
         <h2 className="text-lg font-semibold">Ventas recientes</h2>
-        {loadingSales ? (
-          <p className="mt-3 text-sm text-muted">Cargando ventas…</p>
+        {salesLoadError ? (
+          <div className="mt-3">
+            <RetryState
+              message={salesLoadError}
+              onRetry={() => setSalesRetryKey((key) => key + 1)}
+            />
+          </div>
+        ) : loadingSales ? (
+          <div className="mt-3">
+            <LoadingState label="Cargando ventas recientes" />
+          </div>
         ) : sales.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">Todavía no hay ventas registradas.</p>
+          <div className="mt-3">
+            <EmptyState
+              action={
+                <a
+                  href="#sale-form"
+                  className="inline-flex min-h-11 items-center rounded-md border border-border px-4 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  Registrar una venta
+                </a>
+              }
+            >
+              Todavía no hay ventas.
+            </EmptyState>
+          </div>
         ) : (
           <ul className="mt-3 divide-y divide-border">
             {sales.map((sale) => (
@@ -1305,24 +1338,6 @@ export function SalesManager() {
         )}
       </section>
 
-      {!confirmedSale && (
-        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-surface px-4 py-2 shadow-lg md:hidden">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs text-muted">Total</p>
-              <p className="truncate text-lg font-bold">{formatCOP(total)}</p>
-            </div>
-            <button
-              type="submit"
-              form="sale-form"
-              disabled={!canSell}
-              className="min-h-11 shrink-0 rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? 'Registrando…' : 'Registrar venta'}
-            </button>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

@@ -122,7 +122,7 @@ export function ProductLabelPrint({ products, onClose }: ProductLabelPrintProps)
           <button
             type="button"
             onClick={onClose}
-            className="min-h-10 rounded-md border border-border px-3 text-sm"
+            className="min-h-11 rounded-md border border-border px-3 text-sm"
           >
             Cerrar
           </button>
@@ -198,7 +198,7 @@ export function ProductLabelPrint({ products, onClose }: ProductLabelPrintProps)
                     onChange={(event) => updateCopies(product.id, event.target.value)}
                     disabled={!selected}
                     aria-label={`Copias para ${product.name} ${product.code}`}
-                    className="min-h-10 w-20 rounded-md border border-border bg-background px-2 disabled:opacity-50"
+                    className="min-h-11 w-20 rounded-md border border-border bg-background px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"
                   />
                 </label>
               </li>
@@ -218,7 +218,7 @@ export function ProductLabelPrint({ products, onClose }: ProductLabelPrintProps)
           type="button"
           disabled={labels.length === 0 || Boolean(barcodeError)}
           onClick={() => window.print()}
-          className="mt-4 min-h-12 rounded-md bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-50"
+          className="mt-4 min-h-11 rounded-md border border-border px-4 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"
         >
           Imprimir {labels.length} etiqueta(s)
         </button>

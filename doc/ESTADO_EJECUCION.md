@@ -34,17 +34,25 @@ Estado informado por la estudiante y sincronizado en el seguimiento. Las verific
 
 **Pendiente:**
 
-- Vista de productos y clientes en dos columnas.
+- Revisión general de la vista de productos.
 - Revisión general contra el plan.
 - Fiados y anulación de ventas.
 - Fase 4.
 - Acordar con el profesor la regla de descuentos antes de implementarla.
 
-**Decisiones de diseño pendientes:**
+**Decisión de diseño resuelta:**
 
-- Mantener las pantallas parejas: mismo estilo de encabezado y espacios, un solo botón principal por pantalla y mensajes amables cuando no haya datos.
+- Encabezados y espacios parejos, una sola acción principal opcional, mensajes amables y estados de carga/error accesibles en las pantallas de Productos, Clientes, Proveedores, Reportes y Ventas.
 
 Los prompts P01–P09 conservan su estado formal hasta completar y verificar todos sus criterios; estos avances parciales no cierran por sí solos una fase.
+
+### Mejora de interfaz Fase 2 · Tarea 2.2 (pruebas relacionadas con Tarea 2.7)
+
+- Se creó un encabezado compartido y estados reutilizables para listas vacías, carga y errores con reintento.
+- Clientes prioriza la búsqueda y la lista; muestra detalle o formulario al lado desde `md`. Proveedores ubica la compra a la izquierda y proveedores/compras recientes a la derecha.
+- Productos, Reportes y Ventas comparten el mismo tamaño de título, márgenes y escala de separación. El total fijo de Ventas conserva su posición sobre el menú inferior.
+- Pruebas actualizadas o agregadas para el encabezado, mensajes vacíos, columnas adaptables y una sola acción principal.
+- Verificación individual, con el servidor apagado: type-check ✅, lint ✅, test (55 archivos, 238 pruebas) ✅, build ✅. No se ejecutó SQL ni se consultó la base.
 
 ### Tarea 3.2 · Integridad de productos (RN-02 y RN-15)
 

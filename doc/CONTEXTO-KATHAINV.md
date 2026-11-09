@@ -145,9 +145,10 @@ No se pasa a la siguiente fase hasta cumplir todos los criterios de la actual. L
 
 La paleta acordada es beige y rosa; en modo oscuro se usa una base neutra con rosa y blanco. La pantalla de ventas usa dos columnas y permite el alta rápida de clientes.
 
-**Decisiones de interfaz pendientes:**
+**Interfaz unificada (mejora relacionada con la Tarea 2.2 del plan):**
 
-- Unificar encabezados y espacios, dejar un solo botón principal por pantalla y mostrar mensajes amables cuando no haya datos.
+- Productos, Clientes, Proveedores, Reportes y Ventas comparten encabezado y escala de espacios, con una sola acción principal opcional y estados vacíos, de carga y error en español.
+- Clientes y Proveedores usan dos columnas desde `md`; en celular conservan una sola columna.
 
 El menú principal ya muestra Inicio, Ventas, Productos y Más; Más contiene Clientes, Escáner y Proveedores (la ruta interna sigue siendo `/purchases`). Reportes se consulta desde el enlace “Ver reporte completo” del inicio, no desde el menú.
 

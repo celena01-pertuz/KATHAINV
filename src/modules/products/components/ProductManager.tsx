@@ -4,6 +4,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ProductLabelPrint } from './ProductLabelPrint';
 import { PRODUCTO_CON_EXISTENCIAS_MESSAGE } from '../product-rules';
 import type { ProductRecord } from '../types';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState, LoadingState, RetryState } from '@/components/ui/PageStates';
 
 type ProductFormValues = Partial<ProductRecord> & { variantGroupId?: string };
 
@@ -32,18 +34,19 @@ export function ProductManager() {
   const [showLabelPrint, setShowLabelPrint] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
   async function loadProducts() {
     setLoading(true);
-    setError('');
+    setLoadError('');
     try {
       const response = await fetch('/api/data/products', { cache: 'no-store' });
       if (!response.ok) throw new Error(await readApiError(response));
       const body = (await response.json()) as { data: { data: ProductRecord[] } };
       setProducts(body.data.data);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar los productos.');
+    } catch {
+      setLoadError('No pudimos cargar los productos. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -136,31 +139,34 @@ export function ProductManager() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 lg:px-16">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Productos</h1>
-          <p className="mt-1 text-sm text-muted">Administra productos y variantes de inventario.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setNotice('');
-              setFormProduct({});
-            }}
-            className="min-h-12 rounded-md bg-primary px-4 font-semibold text-primary-foreground"
-          >
-            Nuevo producto
-          </button>
+      <PageHeader
+        title="Productos"
+        description="Administra tus productos y sus variantes de inventario."
+        primaryAction={
+          !formProduct ? (
+            <button
+              type="button"
+              data-primary-action
+              onClick={() => {
+                setNotice('');
+                setFormProduct({});
+              }}
+              className="min-h-11 rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Nuevo producto
+            </button>
+          ) : undefined
+        }
+        secondaryActions={
           <button
             type="button"
             onClick={() => setShowLabelPrint((shown) => !shown)}
-            className="min-h-12 rounded-md border border-primary px-4 font-semibold text-primary"
+            className="min-h-11 rounded-md border border-border px-4 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             Imprimir etiquetas
           </button>
-        </div>
-      </header>
+        }
+      />
 
       {notice && <p className="mb-4 rounded-md bg-success/10 p-3 text-sm">{notice}</p>}
       {error && (
@@ -238,14 +244,18 @@ export function ProductManager() {
         </label>
       </div>
 
-      {loading ? (
-        <p role="status">Cargando productos…</p>
+      {loadError ? (
+        <RetryState message={loadError} onRetry={() => void loadProducts()} />
+      ) : loading ? (
+        <LoadingState label="Cargando productos" />
       ) : visibleProducts.length === 0 ? (
-        <p className="rounded-md border border-border bg-surface p-5 text-sm">
-          No hay productos que coincidan con la búsqueda.
-        </p>
+        <EmptyState>
+          {products.length === 0
+            ? 'Todavía no hay productos.'
+            : 'No encontramos productos con esos filtros.'}
+        </EmptyState>
       ) : (
-        <ul className="grid gap-3 md:grid-cols-2">
+        <ul className="grid gap-4 md:grid-cols-2">
           {visibleProducts.map((product) => (
             <li
               key={product.id}
@@ -295,7 +305,7 @@ export function ProductManager() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="min-h-10 rounded-md border border-border px-3 text-sm"
+                  className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   onClick={() => {
                     setNotice('');
                     setFormProduct(product);
@@ -305,7 +315,7 @@ export function ProductManager() {
                 </button>
                 <button
                   type="button"
-                  className="min-h-10 rounded-md border border-border px-3 text-sm"
+                  className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   onClick={() => {
                     setNotice('');
                     setFormProduct({
@@ -324,7 +334,7 @@ export function ProductManager() {
                   <div>
                     <button
                       type="button"
-                      className="min-h-10 rounded-md border border-danger px-3 text-sm text-danger disabled:cursor-not-allowed disabled:opacity-50"
+                      className="min-h-11 rounded-md border border-danger px-3 text-sm text-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
                       onClick={() => void deactivateProduct(product)}
                       disabled={product.stock > 0}
                       aria-describedby={
@@ -506,7 +516,8 @@ function ProductForm({
       <div className="flex gap-2 sm:col-span-2">
         <button
           type="submit"
-          className="min-h-12 rounded-md bg-primary px-4 font-semibold text-primary-foreground"
+          data-primary-action
+          className="min-h-11 rounded-md bg-primary px-4 font-semibold text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           {editing ? 'Guardar cambios' : 'Crear producto'}
         </button>

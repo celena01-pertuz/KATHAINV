@@ -42,6 +42,21 @@ describe('ProductManager formulario', () => {
     },
   );
 
+  it('muestra un mensaje amable al no tener productos y conserva una sola acción principal', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, data: { data: [], total: 0 } }),
+      }),
+    );
+
+    const { container } = render(<ProductManager />);
+
+    expect(await screen.findByText('Todavía no hay productos.')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-primary-action]')).toHaveLength(1);
+  });
+
   it('deshabilita la desactivación mientras hay stock y muestra la explicación', async () => {
     const product = {
       id: 'product_1',
