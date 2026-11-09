@@ -12,6 +12,7 @@ import { normalizeProductCode } from '@/modules/products/code-utils';
 import type { ProductRecord } from '@/modules/products/types';
 import { buildWhatsAppUrl } from '@/modules/receipts/whatsapp';
 import { createSaleRequestKey } from '../request-key';
+import { saleResultSchema } from '../schemas';
 import type { SalePaymentMethod, SalePaymentType, SaleRecord, SaleResult } from '../types';
 
 interface ApiResponse<T> {
@@ -79,6 +80,7 @@ export function SalesManager() {
   const [cameraMessage, setCameraMessage] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [outOfStockProducts, setOutOfStockProducts] = useState<SaleResult['outOfStock']>([]);
   const [receiptLinks, setReceiptLinks] = useState<Record<number, string>>({});
   const [receiptLoadingId, setReceiptLoadingId] = useState<number | null>(null);
   const [receiptError, setReceiptError] = useState('');
@@ -378,18 +380,23 @@ export function SalesManager() {
       });
 
       if (!response.ok) throw new Error(await responseError(response));
-      const body = (await response.json()) as ApiResponse<SaleResult>;
-      if (!body.data) throw new Error('No se pudo confirmar la venta. Inténtalo más tarde.');
+      const body = (await response.json()) as ApiResponse<unknown>;
+      const parsedResult = saleResultSchema.safeParse(body.data);
+      if (!parsedResult.success) {
+        throw new Error('No se pudo confirmar la venta. Inténtalo más tarde.');
+      }
+      const result = parsedResult.data;
 
       setConfirmedSale({
-        id: body.data.saleId,
-        saleNumber: body.data.saleNumber,
+        id: result.saleId,
+        saleNumber: result.saleNumber,
         customerPhone: selectedCustomer?.phone ?? null,
         customerName: selectedCustomer?.name ?? null,
         paymentType,
-        total: body.data.total,
+        total: result.total,
       });
-      setNotice(`Venta ${body.data.saleNumber} registrada correctamente.`);
+      setOutOfStockProducts(result.outOfStock);
+      setNotice(`Venta ${result.saleNumber} registrada correctamente.`);
       setCart([]);
       setSelectedCustomer(null);
       setCustomerSearch('');
@@ -566,6 +573,7 @@ export function SalesManager() {
     setPaymentMethod('');
     setRequestKey(createSaleRequestKey());
     setConfirmedSale(null);
+    setOutOfStockProducts([]);
     setReceiptError('');
     setReceiptNotice('');
     setNotice('');
@@ -1200,6 +1208,36 @@ export function SalesManager() {
                   >
                     {notice}
                   </p>
+                )}
+                {outOfStockProducts.length > 0 && (
+                  <div
+                    className="mt-3 rounded-md border border-warning/30 bg-warning/10 p-3 text-warning"
+                  >
+                    <p role="status" className="text-sm font-semibold">
+                      {outOfStockProducts.length === 1 ? 'Se agotó: ' : 'Se agotaron: '}
+                      {outOfStockProducts
+                        .map(
+                          (product) =>
+                            `${product.name}, talla ${product.size}, color ${product.color}`,
+                        )
+                        .join('; ')}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Link
+                        href="/purchases"
+                        className="inline-flex min-h-11 items-center justify-center rounded-md border border-warning/50 px-4 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      >
+                        Reponer
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setOutOfStockProducts([])}
+                        className="min-h-11 rounded-md px-4 text-sm font-semibold underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      >
+                        Entendido
+                      </button>
+                    </div>
+                  </div>
                 )}
                 {receiptNotice && (
                   <p

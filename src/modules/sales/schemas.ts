@@ -2,6 +2,21 @@ import { z } from 'zod';
 
 const paymentMethodSchema = z.enum(['efectivo', 'transferencia', 'nequi', 'tarjeta']);
 
+export const outOfStockProductSchema = z.object({
+  id: z.string().min(1),
+  code: z.string().min(1),
+  name: z.string().min(1),
+  size: z.string().min(1),
+  color: z.string().min(1),
+});
+
+export const saleResultSchema = z.object({
+  saleId: z.number().int().positive(),
+  saleNumber: z.string().min(1),
+  total: z.number().finite().nonnegative(),
+  outOfStock: z.array(outOfStockProductSchema),
+});
+
 export const createSaleSchema = z
   .object({
     customerId: z.string().trim().min(1).nullable(),

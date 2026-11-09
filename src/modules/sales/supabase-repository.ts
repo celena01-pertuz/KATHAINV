@@ -1,7 +1,9 @@
 import 'server-only';
 
+import { z } from 'zod';
 import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 import { mapCreateSaleDatabaseError, SalesOperationError } from './errors';
+import { outOfStockProductSchema, saleResultSchema } from './schemas';
 import type { CreateSaleInput, SaleRecord, SaleResult } from './types';
 
 interface SaleRow {
@@ -24,6 +26,10 @@ interface SaleRpcRow {
   total: number;
 }
 
+const productStockRowSchema = outOfStockProductSchema.extend({
+  stock: z.number().int().nonnegative(),
+});
+
 function mapSale(row: SaleRow): SaleRecord {
   return {
     id: row.id,
@@ -40,6 +46,30 @@ function mapSale(row: SaleRow): SaleRecord {
       ? (row.customer[0]?.phone ?? null)
       : (row.customer?.phone ?? null),
   };
+}
+
+async function readOutOfStockProducts(
+  client: ReturnType<typeof createAdminSupabaseClient>,
+  productIds: string[],
+) {
+  try {
+    const { data, error } = await client
+      .from('products')
+      .select('id, code, name, size, color, stock')
+      .in('id', [...new Set(productIds)]);
+
+    if (error) throw new Error('Product stock query failed.');
+
+    const parsedRows = z.array(productStockRowSchema).safeParse(data);
+    if (!parsedRows.success) throw new Error('Product stock response was invalid.');
+
+    return parsedRows.data
+      .filter((product) => product.stock === 0)
+      .map(({ stock: _stock, ...product }) => outOfStockProductSchema.parse(product));
+  } catch {
+    console.error('[Ventas] No se pudo leer el stock actual para el aviso de agotados.');
+    return [];
+  }
 }
 
 export async function listRecentSales(limit = 20): Promise<SaleRecord[]> {
@@ -93,9 +123,15 @@ export async function createSale(
     );
   }
 
-  return {
+  const outOfStock = await readOutOfStockProducts(
+    client,
+    input.items.map((item) => item.productId),
+  );
+
+  return saleResultSchema.parse({
     saleId: row.sale_id,
     saleNumber: row.sale_number,
     total: row.total,
-  };
+    outOfStock,
+  });
 }

@@ -155,4 +155,4 @@ Ya existen los reportes, las compras con total entero no negativo, las etiquetas
 
 RN-02 y RN-15 se implementaron como Tarea 3.2 (enriquecimiento del módulo de productos): referencia única normalizada por nombre+talla+color; productos no borrables y desactivación solo con stock cero. La migración y el smoke test quedaron preparados localmente; no se ejecutó SQL.
 
-El seguimiento detallado se mantiene en `doc/ESTADO_EJECUCION.md`. Siguen pendientes la alerta de agotado, las vistas de productos y clientes en dos columnas, la revisión general contra el plan, los fiados, la anulación de ventas, la Fase 4 y el acuerdo con el profesor sobre descuentos.
+El seguimiento detallado se mantiene en `doc/ESTADO_EJECUCION.md`. Siguen pendientes las vistas de productos y clientes en dos columnas, la revisión general contra el plan, los fiados, la anulación de ventas, la Fase 4 y el acuerdo con el profesor sobre descuentos.

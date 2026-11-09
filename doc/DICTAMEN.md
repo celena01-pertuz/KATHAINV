@@ -33,7 +33,7 @@ Se compara el plan con el código y las migraciones versionadas. El código que 
 - Estado actual: `/sales`, carrito y cobro de contado, parcial o fiado; `create_sale` valida y bloquea existencias, graba precio/costo por ítem y descuenta stock atómicamente. La interfaz confirma el registro.
 - Veredicto: **ENRIQUECER**
 - Razón: la venta transaccional y el precio congelado ya existen y se conservan. No se encontró un campo ni una operación de descuento; tampoco una alerta explícita cuando la venta deja stock en cero. La función devuelve número/total, no los códigos que se agotaron.
-- Acción concreta: conservar RPC, validaciones, fiados e historial. No implementar descuentos hasta definir su regla con el profesor. La alerta de agotado se implementará con la tarea de ventas.
+- Acción concreta: conservar RPC, validaciones, fiados e historial. No implementar descuentos hasta definir su regla con el profesor. La alerta de agotado se completó como extensión de la Tarea 3.3B de ventas (CU-06), sin cambiar el RPC ni ejecutar SQL.
 - Prompt donde se trata: P02, P04, P05 y P08, respetando la regla de descuentos pendiente y la tarea de alerta acordada.
 
 ## F5 — Login
@@ -212,7 +212,7 @@ Reportes/métricas (`/reports`) está todavía en construcción; es una ampliaci
 2. **RN-02:** la clave es nombre normalizado + talla normalizada + color normalizado; los códigos siguen siendo únicos por separado. La estudiante informa que la consulta de solo lectura no encontró combinaciones repetidas. La regla aún no está implementada.
 3. **Dinero de compras:** `purchases.total` es entero mayor o igual a cero en todas las capas. La migración está aplicada y verificada en Supabase; el smoke test pasó.
 4. **RN-14:** nombre, talla y color son obligatorios siempre y no pueden quedar vacíos; la implementación local agrega `CHECK` en una migración nueva, validación Zod en creación/edición y campos obligatorios en el formulario. Para bolsos y accesorios sin talla, el formulario ofrece la opción **“Única”**. La consulta de solo lectura indicada al final del documento se ejecutó y devolvió cero filas. La migración y el smoke test están preparados localmente, pero no se ha ejecutado SQL.
-5. **Alerta de agotado (CU-06):** al registrar una venta, la respuesta debe indicar qué referencias quedaron con stock en cero y la pantalla debe avisarlo. Se hará como parte de la tarea de ventas; no se implementa ahora.
+5. **Alerta de agotado (CU-06):** completada como extensión de la Tarea 3.3B de ventas. La respuesta incluye las referencias con stock actual en cero y la pantalla lo comunica; no se cambió `create_sale`, no se modificaron migraciones y no se ejecutó SQL.
 6. **Descuentos:** se agregarán, pero queda **pendiente de definir regla** con el profesor: porcentaje o valor fijo, por producto o por venta, presentación en el comprobante e impacto en reportes y saldos. No implementar ni modificar `create_sale`, comprobantes, fiados ni reportes hasta acordar la regla.
 
 ## Conflictos aún pendientes con la estudiante antes de P01

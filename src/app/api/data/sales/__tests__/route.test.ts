@@ -71,6 +71,7 @@ describe('/api/data/sales access and identity', () => {
       saleId: 5,
       saleNumber: 'V-000005',
       total: 12500,
+      outOfStock: [],
     });
 
     const response = await POST(
@@ -78,6 +79,9 @@ describe('/api/data/sales access and identity', () => {
     );
 
     expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      data: { outOfStock: [] },
+    });
     expect(createSaleMock).toHaveBeenCalledWith(
       expect.objectContaining({ requestKey: validPayload.requestKey }),
       'owner@example.test',

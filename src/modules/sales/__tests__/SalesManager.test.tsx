@@ -41,7 +41,10 @@ function jsonResponse(data: unknown, status = 200) {
   });
 }
 
-function setupSalesApi(initialCustomers: CustomerRecord[] = []) {
+function setupSalesApi(
+  initialCustomers: CustomerRecord[] = [],
+  outOfStock: { id: string; code: string; name: string; size: string; color: string }[] = [],
+) {
   const postBodies: Record<string, unknown>[] = [];
   const customerPostBodies: Record<string, unknown>[] = [];
   const customers = [...initialCustomers];
@@ -76,7 +79,10 @@ function setupSalesApi(initialCustomers: CustomerRecord[] = []) {
     }
     if (url === '/api/data/sales' && init?.method === 'POST') {
       postBodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
-      return jsonResponse({ saleId: 1, saleNumber: 'V-000001', total: 12500 }, 201);
+      return jsonResponse(
+        { saleId: 1, saleNumber: 'V-000001', total: 12500, outOfStock },
+        201,
+      );
     }
     throw new Error('Ruta inesperada en la prueba.');
   });
@@ -166,6 +172,79 @@ describe('SalesManager interfaz', () => {
     expect(await screen.findByRole('region', { name: 'Comprobante de venta' })).toBeInTheDocument();
     expect(screen.getByText('5. Comprobante de V-000001')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Nueva venta' })).toBeInTheDocument();
+  });
+
+  it('muestra el aviso singular, permite reponer y cerrar el aviso', async () => {
+    setupSalesApi([], [
+      {
+        id: product.id,
+        code: product.code,
+        name: product.name,
+        size: product.size,
+        color: product.color,
+      },
+    ]);
+    render(<SalesManager />);
+    await addProductByCode();
+    fireEvent.change(screen.getByLabelText('Método de pago'), {
+      target: { value: 'efectivo' },
+    });
+    fireEvent.submit(screen.getByTestId('sale-form'));
+
+    expect(await screen.findByText(/^Se agotó:/)).toHaveTextContent(
+      'Se agotó: Camisa de prueba, talla M, color Azul',
+    );
+    expect(screen.getByRole('link', { name: 'Reponer' })).toHaveAttribute('href', '/purchases');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Entendido' }));
+
+    expect(screen.queryByText('Se agotó:')).not.toBeInTheDocument();
+  });
+
+  it('usa el aviso plural cuando se agotan varios productos', async () => {
+    setupSalesApi([], [
+      { id: product.id, code: product.code, name: product.name, size: product.size, color: product.color },
+      {
+        id: 'product_2',
+        code: 'KAT-000002',
+        name: 'Falda de prueba',
+        size: 'S',
+        color: 'Negro',
+      },
+    ]);
+    render(<SalesManager />);
+    await addProductByCode();
+    fireEvent.change(screen.getByLabelText('Método de pago'), {
+      target: { value: 'efectivo' },
+    });
+    fireEvent.submit(screen.getByTestId('sale-form'));
+
+    expect(await screen.findByText(/^Se agotaron:/)).toHaveTextContent(
+      'Se agotaron: Camisa de prueba, talla M, color Azul; Falda de prueba, talla S, color Negro',
+    );
+  });
+
+  it('limpia el aviso al iniciar una nueva venta', async () => {
+    setupSalesApi([], [
+      {
+        id: product.id,
+        code: product.code,
+        name: product.name,
+        size: product.size,
+        color: product.color,
+      },
+    ]);
+    render(<SalesManager />);
+    await addProductByCode();
+    fireEvent.change(screen.getByLabelText('Método de pago'), {
+      target: { value: 'efectivo' },
+    });
+    fireEvent.submit(screen.getByTestId('sale-form'));
+
+    await screen.findByRole('button', { name: 'Nueva venta' });
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva venta' }));
+
+    expect(screen.queryByText('Se agotó:')).not.toBeInTheDocument();
   });
 
   it('guarda y selecciona un cliente nuevo para la venta', async () => {
@@ -284,7 +363,10 @@ describe('SalesManager request_key', () => {
         postBodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
         postCount += 1;
         if (postCount === 1) throw new TypeError('Network unavailable');
-        return jsonResponse({ saleId: 1, saleNumber: 'V-000001', total: 12500 }, 201);
+        return jsonResponse(
+          { saleId: 1, saleNumber: 'V-000001', total: 12500, outOfStock: [] },
+          201,
+        );
       }
       throw new Error('Ruta inesperada en la prueba.');
     });

@@ -34,7 +34,6 @@ Estado informado por la estudiante y sincronizado en el seguimiento. Las verific
 
 **Pendiente:**
 
-- Alerta de agotado.
 - Vista de productos y clientes en dos columnas.
 - Revisión general contra el plan.
 - Fiados y anulación de ventas.
@@ -90,7 +89,7 @@ Los prompts P01–P09 conservan su estado formal hasta completar y verificar tod
 
 - RN-14: implementación en `20261107010000_products_required_attributes.sql`, Zod para creación/edición, formulario, pruebas Vitest y `supabase/tests/products_required_attributes_smoke_test.sql`. La estudiante confirmó que la migración está aplicada y verificada en Supabase: existen los tres `CHECK` y el smoke test pasó. El formulario exige talla/color y ofrece **“Única”** para bolsos y accesorios.
 - Reportes de productos más y menos vendidos: la estudiante confirmó que `20261107120000_p09_f6_product_sales_report.sql` está aplicada en Supabase y que su smoke test pasó.
-- Alerta de agotado (CU-06): al registrar una venta, la respuesta identificará las referencias que quedaron en cero y la pantalla lo avisará. Se implementará con la tarea de ventas, no ahora.
+- Alerta de agotado (CU-06), extensión de la Tarea 3.3B de ventas: completada. La API lee el stock actual después del RPC `create_sale` y devuelve `outOfStock`, también en reintentos. Si falla la lectura, la venta sigue exitosa con una lista vacía y un registro técnico sin datos personales ni claves. `/sales` muestra el aviso accesible con opciones para reponer o cerrar. Sin cambios al RPC, migraciones o base de datos; no se ejecutó SQL.
 - Descuentos: se agregarán; regla pendiente de definir con el profesor. No modificar `create_sale`, comprobantes, fiados ni reportes antes de acordarla.
 - La estudiante confirmó que la migración de compras ya está aplicada y verificada en Supabase, y que pasó el smoke test. El script de acceso público se amplió para revisar `suppliers`, `purchases` y `create_purchase`; su ejecución dio 13 comprobaciones OK y ninguna fallida.
 - El último type-check, lint, test y build finalizaron correctamente; Vitest reportó 153 pruebas en 41 archivos.
